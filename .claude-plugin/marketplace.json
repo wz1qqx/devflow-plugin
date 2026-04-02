@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "devflow",
+  "description": "Multi-repo development lifecycle management plugin for Claude Code",
+  "owner": {
+    "name": "gailun"
+  },
+  "plugins": [
+    {
+      "name": "devflow",
+      "source": "./",
+      "description": "Multi-repo development lifecycle management: structured coding (spec/plan/exec/review), container build, K8s deploy, verification, observability, and debug workflows",
+      "version": "1.0.0",
+      "author": {
+        "name": "gailun"
+      }
+    }
+  ]
+}
