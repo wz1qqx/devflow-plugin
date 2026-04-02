@@ -52,21 +52,21 @@ Invoke via `/devflow:<action>` or parse from `$ARGUMENTS` when called as `/devfl
 | `/devflow:resume` | Restore session, show status, suggest next step | [resume.md](~/.claude/my-dev/workflows/resume.md) |
 | `/devflow:pause` | Save session state for later resume | [pause.md](~/.claude/my-dev/workflows/pause.md) |
 | `/devflow:discuss` | Lock decisions before planning (gray areas) | [discuss.md](~/.claude/my-dev/workflows/discuss.md) |
-| `/devflow:code` | Structured coding: spec → plan → exec → review | [code-*.md](~/.claude/my-dev/workflows/) |
+| `/devflow:code` | Structured coding: auto-select pipeline depth | [code-*.md](~/.claude/my-dev/workflows/) |
 | `/devflow:build` | Build container image with incremental tag chain | [build.md](~/.claude/my-dev/workflows/build.md) |
 | `/devflow:deploy` | Deploy to K8s cluster | [deploy.md](~/.claude/my-dev/workflows/deploy.md) |
 | `/devflow:verify` | Post-deploy verification + benchmark + accuracy | [verify.md](~/.claude/my-dev/workflows/verify.md) |
 | `/devflow:observe` | Grafana dashboards, monitoring, metrics analysis | [observe.md](~/.claude/my-dev/workflows/observe.md) |
 | `/devflow:debug` | Investigation mode + learned hook evolution | [debug.md](~/.claude/my-dev/workflows/debug.md) |
-| `/devflow:diff` | Show dev_worktree vs base_ref changes | [diff.md](~/.claude/my-dev/workflows/diff.md) |
+| `/devflow:diff` | Show dev_worktree vs base_ref changes | [info.md](~/.claude/my-dev/workflows/info.md) |
 | `/devflow:rollback` | Deploy rollback to previous tag | [rollback.md](~/.claude/my-dev/workflows/rollback.md) |
-| `/devflow:switch` | Switch active project | workflow inline |
+| `/devflow:switch` | Switch active feature | workflow inline |
 | `/devflow:clean` | Clean up unused resources | [clean.md](~/.claude/my-dev/workflows/clean.md) |
 | `/devflow:log` | Quick checkpoint entry | workflow inline |
-| `/devflow:status` | Full project status overview | [status.md](~/.claude/my-dev/workflows/status.md) |
+| `/devflow:status` | Full project status overview | [info.md](~/.claude/my-dev/workflows/info.md) |
 | `/devflow:cluster` | Manage cluster profiles | workflow inline |
-| `/devflow:knowledge` | Knowledge base operations | workflow inline |
-| `/devflow:learn` | Deep-dive learning (→ Obsidian knowledge) | workflow inline |
+| `/devflow:knowledge` | Knowledge base operations | [knowledge-maintain.md](~/.claude/my-dev/workflows/knowledge-maintain.md) |
+| `/devflow:learn` | Deep-dive learning (→ Obsidian knowledge) | [learn.md](~/.claude/my-dev/workflows/learn.md) |
 
 ## Dispatch Rule
 
@@ -74,6 +74,39 @@ When invoked as `/devflow <action> [args]`:
 1. Parse first token of `$ARGUMENTS` as `<action>`
 2. Route to the corresponding `/devflow:<action>` command
 3. Pass remaining args to the command
+
+## Complexity Tiering
+
+`/devflow:code` auto-classifies task complexity and selects pipeline depth:
+
+| Size | Pipeline | Trigger |
+|------|----------|---------|
+| `quick` | exec → commit | Prefixes: `quick:`, `just:`, `typo:` or ≤20 words with small signals |
+| `small` | plan → exec → review | 1-3 files, <100 lines, small signals |
+| `medium` | spec → plan → exec → review | Default for most tasks |
+| `large` | discuss → spec → plan → exec → review | `refactor`, `architect`, `migrate`, cross-repo, >150 words |
+
+Override with explicit flags: `--spec`, `--plan`, `--exec`, `--review`.
+
+## Composable Behavior Layers
+
+`/devflow:code <feature> --exec` supports stackable behavior flags:
+
+| Flag | Layer | Effect |
+|------|-------|--------|
+| `--verify` | Enhancement | Smoke test (lint/test) after each wave |
+| `--review-each` | Enhancement | Mini code review after each task |
+| `--persistent` | Guarantee | Auto-retry on failure, no user prompt (up to max_task_retries) |
+| `--sequential` | Execution | Disable wave parallelism, run all tasks serially |
+
+Flags compose freely: `--exec --persistent --verify --review-each`
+
+## Specificity Gate
+
+Build and deploy workflows check if the request is specific enough:
+- Vague requests ("部署一下") → redirect to discuss/planning
+- Specific requests (with file paths, tags, cluster names) → execute directly
+- `--force` bypasses the gate
 
 ## Workflows (Layer 2 — Orchestration)
 
@@ -88,12 +121,12 @@ Located at `~/.claude/my-dev/workflows/`. Orchestrators stay lean:
 |----------|---------|-------------|
 | `code-spec.md` | Generate feature specification | my-dev-researcher |
 | `code-plan.md` | Create implementation plan + verification loop | my-dev-planner, my-dev-plan-checker |
-| `code-exec.md` | Wave-based parallel execution | my-dev-executor (per plan) |
+| `code-exec.md` | Wave-based parallel execution + composable behaviors | my-dev-executor (per plan) |
 | `code-review.md` | Automated code review | my-dev-reviewer |
 
 ## Agents (Layer 3 — Execution)
 
-Located at `~/.claude/my-dev/agents/`. Each has focused role + minimal tool permissions.
+Built-in agents at `~/.claude/my-dev/agents/`. Add custom agents to `.devflow/agents/` (project-local, higher priority).
 
 | Agent | Role | Tools | Model (balanced) |
 |-------|------|-------|-----------------|
@@ -104,6 +137,8 @@ Located at `~/.claude/my-dev/agents/`. Each has focused role + minimal tool perm
 | `my-dev-reviewer` | Code review (read-only) | Read, Bash, Grep, Glob | sonnet |
 | `my-dev-verifier` | Post-deploy system verification | Read, Write, Bash, Grep, Glob | sonnet |
 | `my-dev-debugger` | Investigation + hypothesis tracking | Read, Write, Edit, Bash, Grep, Glob, WebSearch | sonnet |
+
+Model routing controlled by `defaults.model_profile` (quality/balanced/budget). Per-agent override via `defaults.agent_models`.
 
 ## CLI Tools (Layer 4 — State Management)
 
@@ -121,14 +156,30 @@ node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" config get <key>
 node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" state get [field]
 node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" state update <field> <value>
 
-# Model resolution
+# Model resolution (profile-driven: quality/balanced/budget)
 node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" resolve-model <agent-name>
+
+# Task complexity classification
+node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" classify <prompt>
+
+# Prompt specificity check
+node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" check-specificity <prompt>
+
+# Agent discovery (plugin + project .devflow/agents/)
+node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" agents list
+
+# Feature management
+node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" features list|active|switch
 
 # Template operations
 node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" template fill <type> [--vars]
 
 # Verification
 node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" verify plan-structure <file>
+node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" verify phase-completeness <feature>
+
+# Checkpoint
+node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint --action <action> --summary <text>
 ```
 
 ## Memory System
@@ -158,6 +209,13 @@ Obsidian Vault (永久记忆 · 第二大脑) [OPTIONAL]
 - `code --review` patterns → Obsidian `knowledge/<pattern>.md` (if vault configured)
 - If no Obsidian vault configured, knowledge stays in `.dev/features/` only
 
+## Hooks
+
+| Hook | File | Event | Purpose |
+|------|------|-------|---------|
+| Context Monitor | `my-dev-context-monitor.js` | PostToolUse | Warn at 35%/25% remaining context |
+| Persistent Mode | `devflow-persistent.js` | Stop | Re-inject continuation when `--persistent` active |
+
 ## Shared Resources
 
 | Path | Contents |
@@ -166,7 +224,7 @@ Obsidian Vault (永久记忆 · 第二大脑) [OPTIONAL]
 | `~/.claude/my-dev/templates/` | spec.md, plan.md, review.md, summary.md, state.md, context.md, experience.md |
 | `.dev.yaml` | Project config (workspace root) |
 | `.dev/` | Working memory: STATE.md, HANDOFF.json, features/ |
-| `hooks/` | Bash hook scripts (workspace root) |
+| `.devflow/agents/` | Project-local custom agent definitions (optional) |
 | Obsidian vault | Permanent knowledge + experience + devlog (optional) |
 
 ## Core Invariants

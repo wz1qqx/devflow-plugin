@@ -8,7 +8,7 @@ function output(data) {
 }
 
 function error(msg) {
-  process.stderr.write(`[my-dev-tools] ERROR: ${msg}\n`);
+  process.stderr.write(`[devflow] ERROR: ${msg}\n`);
   process.exit(1);
 }
 

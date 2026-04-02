@@ -9,7 +9,7 @@ const subcommand = args[1];
 const rest = args.slice(2);
 
 if (!command) {
-  error('Usage: my-dev-tools <command> [subcommand] [args...]\n\nCommands:\n  init <workflow> [args]     Context loading for a workflow\n  config load|get <key>      Project config operations\n  state get|update [args]    State management\n  features list|active|switch Feature management\n  checkpoint [args]          Write checkpoint to Obsidian + feature devlog\n  resolve-model <agent>      Model routing for agent\n  verify plan-structure <f>  Verify plan file structure\n  template fill <type>       Fill a template');
+  error('Usage: devflow-tools <command> [subcommand] [args...]\n\nCommands:\n  init <workflow> [args]       Context loading for a workflow\n  config load|get <key>        Project config operations\n  state get|update [args]      State management\n  features list|active|switch  Feature management\n  agents list                  Discover available agents\n  classify <prompt>            Classify task complexity (quick/small/medium/large)\n  check-specificity <prompt>   Check prompt specificity for execution gates\n  resolve-model <agent>        Model routing for agent (profile-driven)\n  checkpoint [args]            Write checkpoint to devlog\n  verify plan-structure <f>    Verify plan file structure\n  verify phase-completeness <f> Check feature phase artifacts\n  template fill <type>         Fill a template');
 }
 
 try {
