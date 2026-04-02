@@ -1,0 +1,13 @@
+{
+  "name": "devflow",
+  "version": "1.0.0",
+  "description": "Multi-repo development lifecycle management: structured coding (spec/plan/exec/review), container build, K8s deploy, verification, observability, and debug workflows",
+  "author": {
+    "name": "gailun"
+  },
+  "license": "MIT",
+  "keywords": ["devops", "workflow", "multi-repo", "k8s", "lifecycle"],
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks.json"
+}
