@@ -40,6 +40,30 @@ If NOT specific (missing cluster, tag, or feature context):
 If `$ARGUMENTS` contains `--force`, skip this gate.
 </step>
 
+<step name="COLLISION_CHECK">
+Check if another feature is already deployed to the same cluster/namespace.
+
+```bash
+ALL_FEATURES=$(echo "$INIT" | jq -r '.all_clusters // empty')
+```
+
+Scan all features in `.dev.yaml` for:
+- Same `cluster` value as current deploy target
+- Different feature name than current feature
+- Phase is `deploy`, `verify`, or `observe` (actively using the cluster)
+
+If collision detected:
+```
+⚠️  Feature "$OTHER_FEATURE" is already deployed to $CLUSTER_NAME / $NAMESPACE
+    Tag: $OTHER_TAG | Phase: $OTHER_PHASE
+
+    Proceeding will overwrite the existing deployment.
+    Continue? [Y/n]
+```
+
+For `safety: prod` clusters, require explicit confirmation even without collision.
+</step>
+
 Gate: `current_tag` must exist (build completed). If not, abort: "No built image. Run `/devflow build` first."
 Gate: `active_cluster` must be set. If not, abort: "No cluster configured. Run `/devflow cluster use <name>`."
 </step>

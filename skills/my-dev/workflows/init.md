@@ -124,17 +124,24 @@ Create supporting directory structure.
 
 ```bash
 mkdir -p "$WORKSPACE/.dev/features"
-mkdir -p "$WORKSPACE/.dev/specs"
-mkdir -p "$WORKSPACE/.dev/plans"
-mkdir -p "$WORKSPACE/.dev/reviews"
 mkdir -p "$WORKSPACE/hooks"
 mkdir -p "$WORKSPACE/bench-results"
 
-# Obsidian directories
-KNOWLEDGE_DIR="$VAULT/$DEVLOG_GROUP/knowledge"
-EXPERIENCE_DIR="$VAULT/$DEVLOG_GROUP/experience"
-mkdir -p "$KNOWLEDGE_DIR"
-mkdir -p "$EXPERIENCE_DIR"
+# Obsidian directories (only if vault configured)
+if [ -n "$VAULT" ] && [ "$VAULT" != "null" ]; then
+  KNOWLEDGE_DIR="$VAULT/$DEVLOG_GROUP/knowledge"
+  EXPERIENCE_DIR="$VAULT/$DEVLOG_GROUP/experience"
+  mkdir -p "$KNOWLEDGE_DIR"
+  mkdir -p "$EXPERIENCE_DIR"
+fi
+
+# Add .dev/ to .gitignore if not already present
+GITIGNORE="$WORKSPACE/.gitignore"
+if [ -f "$GITIGNORE" ]; then
+  grep -q "^\.dev/" "$GITIGNORE" || echo -e "\n# devflow working state\n.dev/" >> "$GITIGNORE"
+else
+  echo -e "# devflow working state\n.dev/" > "$GITIGNORE"
+fi
 ```
 </step>
 
