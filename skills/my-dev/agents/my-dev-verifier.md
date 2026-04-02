@@ -120,8 +120,8 @@ Date: YYYY-MM-DD
 - bench-results/<filename>
 ```
 
-5. If anomaly detected: "Anomaly detected. Enter debug mode? (`/my-dev debug`)"
-6. If PASS: "Verification passed. Suggest `/my-dev observe --monitor` for ongoing monitoring."
+5. If anomaly detected: "Anomaly detected. Enter debug mode? (`/devflow debug`)"
+6. If PASS: "Verification passed. Suggest `/devflow observe --monitor` for ongoing monitoring."
 </step>
 
 </execution_flow>

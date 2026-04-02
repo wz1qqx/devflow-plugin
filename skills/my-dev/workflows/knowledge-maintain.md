@@ -16,8 +16,14 @@ Load workspace configuration and collect all Tier 2 notes.
 ```bash
 INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init knowledge-maintain)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
-VAULT=$(echo "$INIT" | jq -r '.vault')
-DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group')
+VAULT=$(echo "$INIT" | jq -r '.vault // empty')
+DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group // empty')
+```
+
+**Vault gate**: If `VAULT` is empty or "null", abort with: "Knowledge maintenance requires Obsidian vault. Set `vault` in .dev.yaml to enable."
+
+If vault configured:
+```bash
 KNOWLEDGE_DIR="$VAULT/$DEVLOG_GROUP/knowledge"
 INDEX="$WORKSPACE/.dev/KNOWLEDGE-INDEX.md"
 NOTES=$(find "$KNOWLEDGE_DIR" -name "*.md" -type f)

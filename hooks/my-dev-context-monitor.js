@@ -4,7 +4,7 @@
 //
 // Thresholds:
 //   WARNING  (remaining <= 35%): Wrap up current task, consider pausing
-//   CRITICAL (remaining <= 25%): Stop immediately, run /my-dev:pause
+//   CRITICAL (remaining <= 25%): Stop immediately, run /devflow:pause
 //
 // Debounce: 5 tool uses between warnings to avoid spam
 // Severity escalation (WARNING→CRITICAL) bypasses debounce
@@ -68,12 +68,12 @@ process.stdin.on('end', () => {
       if (severity === 'critical') {
         result.hookSpecificOutput.additionalContext =
           `🚨 CRITICAL: Context window ${usedPct}% used (${Math.round(usableRemaining)}% remaining). ` +
-          `Quality WILL degrade. Run /my-dev:pause to save state, then start a new session with /my-dev:resume. ` +
+          `Quality WILL degrade. Run /devflow:pause to save state, then start a new session with /devflow:resume. ` +
           `Do NOT start complex new tasks.`;
       } else {
         result.hookSpecificOutput.additionalContext =
           `⚠️ WARNING: Context window ${usedPct}% used (${Math.round(usableRemaining)}% remaining). ` +
-          `Consider wrapping up the current task. If more work is needed, run /my-dev:pause then resume in a new session.`;
+          `Consider wrapping up the current task. If more work is needed, run /devflow:pause then resume in a new session.`;
       }
 
       process.stdout.write(JSON.stringify(result));

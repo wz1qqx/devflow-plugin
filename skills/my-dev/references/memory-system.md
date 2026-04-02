@@ -1,6 +1,6 @@
 # Memory System Reference
 
-<purpose>Authoritative reference for the /my-dev unified memory system. All workflows and agents reference this document for memory architecture, state specifications, and knowledge sink rules.</purpose>
+<purpose>Authoritative reference for the /devflow unified memory system. All workflows and agents reference this document for memory architecture, state specifications, and knowledge sink rules.</purpose>
 
 ## Architecture Overview — Three-Tier Bandwidth-Aware Design
 
@@ -437,7 +437,7 @@ The learn workflow (`workflows/learn.md`) manages Obsidian knowledge notes with 
 ### Flow
 
 ```
-code --plan (auto) or /my-dev:learn (manual)
+code --plan (auto) or /devflow:learn (manual)
   │
   ├── CHECK: Glob Obsidian knowledge/ for matching notes
   │     ├── FRESH (repo commits match base worktree HEAD) → load directly

@@ -1,6 +1,6 @@
 # Model Profiles
 
-Agent model assignments for /my-dev workflows. Follows GSD's tiered approach.
+Agent model assignments for /devflow workflows. Follows GSD's tiered approach.
 
 ## Profiles
 

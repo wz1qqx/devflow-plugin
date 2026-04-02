@@ -14,7 +14,7 @@ Shows the target feature's status and loads its context.
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/references/schema-v2.md
+@~/.claude/my-dev/references/schema.md
 </execution_context>
 
 <context>

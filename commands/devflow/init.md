@@ -20,7 +20,6 @@ Route to the appropriate init workflow based on arguments:
 <execution_context>
 Workspace init: @~/.claude/my-dev/workflows/init.md
 Feature init:   @~/.claude/my-dev/workflows/init-feature.md
-Migration:      @~/.claude/my-dev/workflows/migrate-v2.md
 </execution_context>
 
 <context>
@@ -40,7 +39,7 @@ Extract the first token from `$ARGUMENTS`:
 Execute @~/.claude/my-dev/workflows/init.md end-to-end.
 
 Pre-check: if `.dev.yaml` already exists:
-- Check `schema_version`. If `1` → suggest migration first: "Existing v1 config found. Run `/devflow:migrate-v2` to upgrade, or proceed to overwrite?"
+- Check `schema_version`. If `1` → suggest: "v1 config detected. Run `/devflow:init workspace` to upgrade to v2."
 - If `2` → warn: "Workspace already initialized. Proceeding will overwrite. Continue? (y/n)"
 
 ## 2b. Feature Init
@@ -54,7 +53,7 @@ Pre-check: if `.dev.yaml` does not exist → abort with: "No workspace config fo
 ```
 if .dev.yaml exists:
   if schema_version == 1:
-    → suggest: "/devflow:init workspace" to set up v2, or "/devflow:migrate-v2" to upgrade
+    → suggest: "/devflow:init workspace" to set up v2 schema
   if schema_version == 2:
     → ask: "Feature name to initialize?"
     → then run feature init workflow

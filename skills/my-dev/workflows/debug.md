@@ -19,13 +19,15 @@ If no topic provided, ask: "What are you investigating? (e.g., deploy-stuck, ben
 Extract context:
 ```bash
 CURRENT_TAG=$(echo "$INIT" | jq -r '.feature.current_tag')
-VAULT=$(echo "$INIT" | jq -r '.vault')
-DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group')
+VAULT=$(echo "$INIT" | jq -r '.vault // empty')
+DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group // empty')
+VAULT_CONFIGURED=$( [ -n "$VAULT" ] && [ "$VAULT" != "null" ] && echo "true" || echo "false" )
 ```
 
-Load related context:
+Load related context (if vault configured):
 - Experience notes matching topic (`experience/{topic}-patterns.md`) — known root causes help narrow scope
 - Knowledge notes matching topic
+- If vault NOT configured, skip Obsidian lookups; rely on `.dev/features/` context only
 </step>
 
 <step name="INVESTIGATE">
@@ -63,8 +65,10 @@ On root cause found, generate reusable artifacts.
 </step>
 
 <step name="EXPERIENCE_SINK">
-After resolution, AUTOMATICALLY save experience pattern to Obsidian.
-The default is to SAVE. User must explicitly opt out.
+After resolution, save experience pattern.
+
+**If vault configured** (`VAULT_CONFIGURED == "true"`):
+Save to Obsidian — the default is to SAVE. User must explicitly opt out.
 
 ```bash
 EXPERIENCE_DIR="$VAULT/$DEVLOG_GROUP/experience"
@@ -100,6 +104,9 @@ Experience saved: experience/<topic>-patterns.md
 
   Edit? [Y/n/edit]
 ```
+
+**If vault NOT configured**:
+Save experience to `.dev/features/$FEATURE/debug-${TOPIC}.md` instead. Same format, but in the local working directory.
 </step>
 
 <step name="CLOSE">

@@ -17,13 +17,15 @@ Load workspace configuration and resolve feature context.
 FEATURE="$1"
 INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init learn "$FEATURE")
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
-VAULT=$(echo "$INIT" | jq -r '.vault')
-DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group')
-KNOWLEDGE_DIR="$VAULT/$DEVLOG_GROUP/knowledge"
-DEEP_DIR="$VAULT/$DEVLOG_GROUP/deep"
+VAULT=$(echo "$INIT" | jq -r '.vault // empty')
+DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group // empty')
 ```
 
 Gate: `FEATURE` must be non-empty. If missing, use active feature from init.
+
+**Vault gate**: If `VAULT` is empty or "null", inform user: "Obsidian vault not configured. Set `vault` in .dev.yaml to enable knowledge persistence. Research results will be saved to `.dev/features/<feature>/` only."
+- If vault is configured: `KNOWLEDGE_DIR="$VAULT/$DEVLOG_GROUP/knowledge"` and `DEEP_DIR="$VAULT/$DEVLOG_GROUP/deep"`
+- If vault is NOT configured: skip Obsidian writes, save research output to `.dev/features/$FEATURE/research.md` instead
 
 Resolve base worktrees and HEAD commits for each repo in feature scope.
 </step>

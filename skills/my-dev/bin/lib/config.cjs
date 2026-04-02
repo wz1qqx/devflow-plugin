@@ -24,7 +24,7 @@ function loadConfig(workspaceRoot) {
     const config = { _root: root, _path: yamlPath, ...raw };
 
     if (config.schema_version !== 2) {
-      error('Unsupported schema_version. Only v2 is supported. Migrate with /my-dev:init workspace.');
+      error('Unsupported schema_version. Only v2 is supported. Migrate with /devflow:init workspace.');
     }
     return config;
   } catch (err) {

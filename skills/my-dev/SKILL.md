@@ -23,7 +23,7 @@ description: >
 ```
 
 **Config**: `.dev.yaml` (workspace root, schema v2)
-**Schema**: [schema-v2.md](~/.claude/my-dev/references/schema-v2.md)
+**Schema**: [schema.md](~/.claude/my-dev/references/schema.md)
 **Vault**: Configured in `.dev.yaml` `vault` field (optional)
 
 ### Workspace vs Feature 模型
