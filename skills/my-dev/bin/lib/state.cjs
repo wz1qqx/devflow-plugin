@@ -10,12 +10,26 @@ function loadState(featureName) {
   if (!root) error('.dev.yaml not found');
   const devDir = path.join(root, '.dev');
   const state = { specs: [], plans: [], reviews: [] };
-  for (const dir of ['specs', 'plans', 'reviews']) {
-    const dirPath = path.join(devDir, dir);
-    if (fs.existsSync(dirPath)) {
-      state[dir] = fs.readdirSync(dirPath)
-        .filter(f => f.endsWith('.md'))
-        .map(f => f.replace(/\.md$/, ''));
+
+  // Check per-feature artifacts (current schema: .dev/features/<name>/)
+  if (featureName) {
+    const featureDir = path.join(devDir, 'features', featureName);
+    if (fs.existsSync(featureDir)) {
+      if (fs.existsSync(path.join(featureDir, 'spec.md'))) state.specs.push(featureName);
+      if (fs.existsSync(path.join(featureDir, 'plan.md'))) state.plans.push(featureName);
+      if (fs.existsSync(path.join(featureDir, 'review.md'))) state.reviews.push(featureName);
+    }
+  }
+
+  // Also scan features/ directory for all features
+  const featuresDir = path.join(devDir, 'features');
+  if (fs.existsSync(featuresDir)) {
+    for (const name of fs.readdirSync(featuresDir)) {
+      const fDir = path.join(featuresDir, name);
+      if (!fs.statSync(fDir).isDirectory()) continue;
+      if (fs.existsSync(path.join(fDir, 'spec.md')) && !state.specs.includes(name)) state.specs.push(name);
+      if (fs.existsSync(path.join(fDir, 'plan.md')) && !state.plans.includes(name)) state.plans.push(name);
+      if (fs.existsSync(path.join(fDir, 'review.md')) && !state.reviews.includes(name)) state.reviews.push(name);
     }
   }
   return state;

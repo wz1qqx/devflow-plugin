@@ -55,6 +55,8 @@ defaults:
   active_feature: <string>          # Currently active feature
   active_cluster: <string>          # Which cluster to use by default
   model_profile: balanced           # Agent model tier: quality | balanced | budget
+  agent_models:                     # Optional per-agent model overrides
+    <agent-name>: <model>           # e.g., my-custom-auditor: opus
   tuning:                           # Optional tunable parameters (all have defaults)
     regression_threshold: 20        # Benchmark regression alert threshold (%)
     max_task_retries: 2             # code-exec max retries per failed task

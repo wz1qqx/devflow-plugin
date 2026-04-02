@@ -22,6 +22,23 @@ SAFETY=$(echo "$INIT" | jq -r '.cluster.safety')
 DEPLOY_CONFIG=$(echo "$INIT" | jq -r '.deploy')
 STRATEGY=$(echo "$DEPLOY_CONFIG" | jq -r '.strategy // "apply"')
 ```
+</step>
+
+<step name="SPECIFICITY_GATE">
+Check if the deploy request is specific enough for direct execution.
+
+```bash
+SPEC_CHECK=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" check-specificity "$ARGUMENTS")
+SPECIFIC=$(echo "$SPEC_CHECK" | jq -r '.specific')
+```
+
+If NOT specific (missing cluster, tag, or feature context):
+- Check: `CURRENT_TAG` must be non-empty. If null: "No image tag set. Run `/devflow:build` first?"
+- Check: `CLUSTER_NAME` must be non-empty. If null: present cluster selection via AskUserQuestion
+- Check: `NAMESPACE` must be non-empty. If null: abort with clear error
+
+If `$ARGUMENTS` contains `--force`, skip this gate.
+</step>
 
 Gate: `current_tag` must exist (build completed). If not, abort: "No built image. Run `/devflow build` first."
 Gate: `active_cluster` must be set. If not, abort: "No cluster configured. Run `/devflow cluster use <name>`."

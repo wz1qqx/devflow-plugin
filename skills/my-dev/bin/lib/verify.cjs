@@ -53,15 +53,16 @@ function verifyPhaseCompleteness(featureName) {
   const root = findWorkspaceRoot();
   if (!root) return { complete: false, errors: ['No workspace found'] };
   const devDir = path.join(root, '.dev');
+  const featureDir = path.join(devDir, 'features', featureName);
   const result = {
     feature: featureName,
-    spec: fs.existsSync(path.join(devDir, 'specs', `${featureName}.md`)),
-    plan: fs.existsSync(path.join(devDir, 'plans', `${featureName}.md`)),
-    review: fs.existsSync(path.join(devDir, 'reviews', `${featureName}.md`)),
+    spec: fs.existsSync(path.join(featureDir, 'spec.md')),
+    plan: fs.existsSync(path.join(featureDir, 'plan.md')),
+    review: fs.existsSync(path.join(featureDir, 'review.md')),
   };
 
   // Check plan task statuses
-  const planPath = path.join(devDir, 'plans', `${featureName}.md`);
+  const planPath = path.join(featureDir, 'plan.md');
   if (result.plan) {
     const content = fs.readFileSync(planPath, 'utf8');
     const statusMatches = content.match(/\*\*Status\*\*:\s*(\w+)/g) || [];

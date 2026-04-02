@@ -26,6 +26,16 @@ REPOS=$(echo "$INIT" | jq -r '.repos | keys[]')
 Gate: `build.commands` must be configured. If not, abort: "No build commands configured in .dev.yaml"
 </step>
 
+<step name="SPECIFICITY_GATE">
+Check prerequisites before building.
+
+- `CURRENT_TAG` or `BASE_IMAGE` must exist to establish the incremental chain. If both null: "No base image or current tag. Is this the first build? Set `base_image` in feature config."
+- `REGISTRY` must be non-empty. If null: "No registry configured in `build_server.registry`."
+- At least one repo must have uncommitted or ahead commits. If all repos are clean: "No changes detected. Nothing to build."
+
+If `$ARGUMENTS` contains `--force`, skip change detection check.
+</step>
+
 <step name="VALIDATE">
 Run all pre-build checks: hooks, learned rules, and invariants.
 

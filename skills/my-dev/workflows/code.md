@@ -1,7 +1,7 @@
 # Workflow: code
 
-<purpose>Router for the structured coding pipeline. Dispatches to the appropriate sub-workflow based on the flag provided.</purpose>
-<core_principle>Single entry point for all coding operations. Auto-detect stage when no flag given.</core_principle>
+<purpose>Router for the structured coding pipeline. Dispatches to the appropriate sub-workflow based on the flag provided. Auto-detects task complexity to select pipeline depth.</purpose>
+<core_principle>Single entry point for all coding operations. Match pipeline depth to task complexity: quick tasks skip ceremony, large tasks get full scrutiny.</core_principle>
 
 <process>
 <step name="INIT" priority="first">
@@ -11,10 +11,41 @@ Load project configuration and parse arguments.
 INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init code)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$ARGUMENTS" | awk '{print $1}')
-FLAG=$(echo "$ARGUMENTS" | grep -oE '\-\-(spec|plan|exec|review|status)' | head -1)
+FLAG=$(echo "$ARGUMENTS" | grep -oE '\-\-(spec|plan|exec|review|status|quick)' | head -1)
+DESCRIPTION=$(echo "$ARGUMENTS" | sed 's/^[^ ]* *//' | sed 's/--[^ ]* *//')
 ```
 
 Gate: `FEATURE` must be non-empty. If missing, check `defaults.active_feature` from config. If still empty, prompt: "Which feature? Provide a short kebab-case name."
+</step>
+
+<step name="SIZE_DETECT" condition="no flag provided and DESCRIPTION is non-empty">
+Classify task complexity to determine pipeline depth.
+
+```bash
+SIZE_RESULT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" classify "$DESCRIPTION")
+SIZE=$(echo "$SIZE_RESULT" | jq -r '.size')
+PIPELINE=$(echo "$SIZE_RESULT" | jq -r '.pipeline | join(" → ")')
+```
+
+Display:
+```
+Task complexity: $SIZE
+Pipeline: $PIPELINE
+```
+
+| Size | Pipeline | When |
+|------|----------|------|
+| `quick` | exec → commit | Typos, config changes, version bumps |
+| `small` | plan → exec → review | 1-3 files, < 100 lines |
+| `medium` | spec → plan → exec → review | Cross-file changes (default) |
+| `large` | discuss → spec → plan → exec → review | Cross-repo, architecture changes |
+
+- If `quick`: delegate to @~/.claude/my-dev/workflows/quick.md with the description
+- If `small`: skip spec, go directly to `--plan`
+- If `medium`: proceed to AUTO_DETECT (standard flow)
+- If `large`: check if `context.md` exists (discuss output); if not, suggest `--discuss` first
+
+Ask: "继续？[Y / 调整复杂度]"
 </step>
 
 <step name="DISPATCH">
@@ -50,13 +81,14 @@ Feature: $FEATURE
 </step>
 
 <step name="AUTO_DETECT">
-When no flag is provided, detect the current stage from existing artifacts and resume.
+When no flag is provided and no description given, detect the current stage from existing artifacts and resume.
 
 Priority order (latest stage first):
 1. If `review.md` exists with FAIL verdict -> re-run `--exec` to fix issues
 2. If `plan.md` exists with pending tasks -> resume `--exec`
-3. If `spec.md` exists but no `plan.md` -> run `--plan`
-4. If nothing exists -> run `--spec`
+3. If `context.md` exists (discuss done) but no `plan.md` -> run `--plan`
+4. If `spec.md` exists but no `plan.md` -> run `--plan`
+5. If nothing exists -> run `--spec`
 
 Report detection:
 ```

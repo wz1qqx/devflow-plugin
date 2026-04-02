@@ -23,6 +23,7 @@ WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 TODAY=$(date +%Y%m%d)
 SLUG=$(echo "$DESCRIPTION" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | head -c 40)
+[ -z "$SLUG" ] && SLUG="quick-$(date +%s)"
 QUICK_DIR="$WORKSPACE/.dev/quick/${TODAY}-${SLUG}"
 mkdir -p "$QUICK_DIR"
 ```

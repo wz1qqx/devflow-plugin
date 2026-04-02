@@ -62,7 +62,7 @@ fi
 
 # --- 3. Hook files: copy to ~/.claude/hooks/ ---
 mkdir -p "$TARGET_HOOKS_DIR"
-for hook_file in "$HOOKS_SRC"/my-dev-*.js; do
+for hook_file in "$HOOKS_SRC"/*.js; do
   [ -f "$hook_file" ] || continue
   BASENAME=$(basename "$hook_file")
   if [ -f "$TARGET_HOOKS_DIR/$BASENAME" ] && diff -q "$hook_file" "$TARGET_HOOKS_DIR/$BASENAME" > /dev/null 2>&1; then

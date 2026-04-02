@@ -19,6 +19,31 @@ Gate: `.dev/features/${FEATURE}/plan.md` must exist. If not:
 - Auto-redirect to code-plan workflow.
 </step>
 
+<step name="PARSE_BEHAVIOR">
+Parse behavior layer flags from arguments. These are composable enhancements.
+
+```bash
+VERIFY_EACH=$(echo "$ARGUMENTS" | grep -q '\-\-verify' && echo "true" || echo "false")
+REVIEW_EACH=$(echo "$ARGUMENTS" | grep -q '\-\-review-each' && echo "true" || echo "false")
+PERSISTENT=$(echo "$ARGUMENTS" | grep -q '\-\-persistent' && echo "true" || echo "false")
+SEQUENTIAL=$(echo "$ARGUMENTS" | grep -q '\-\-sequential' && echo "true" || echo "false")
+```
+
+| Flag | Layer | Effect |
+|------|-------|--------|
+| `--verify` | Enhancement | After each wave, run smoke test on dev worktree (compile/lint/test) |
+| `--review-each` | Enhancement | After each task completes, spawn mini-review before next task |
+| `--persistent` | Guarantee | On failure, auto-retry instead of asking user (up to max_task_retries) |
+| `--sequential` | Execution | Disable wave parallelism, run all tasks serially |
+
+Display active layers:
+```
+Behavior: execution=$( [ "$SEQUENTIAL" = "true" ] && echo "sequential" || echo "parallel" )
+          enhancement=$( [ "$VERIFY_EACH" = "true" ] && echo "+verify" )$( [ "$REVIEW_EACH" = "true" ] && echo " +review-each" )
+          guarantee=$( [ "$PERSISTENT" = "true" ] && echo "persistent" || echo "standard" )
+```
+</step>
+
 <step name="LOAD_PLAN">
 Parse the plan file and determine execution state.
 
@@ -55,9 +80,13 @@ Wave 3: [Task 4 (direct), Task 5 (subagent)]      -- parallel
 </step>
 
 <step name="EXECUTE_WAVES">
-Execute waves sequentially. Within each wave, launch tasks in parallel.
+Execute waves sequentially. Within each wave, launch tasks based on behavior flags.
 
 For each wave:
+
+**Execution mode**:
+- If `SEQUENTIAL == "true"`: run tasks one at a time within the wave
+- Otherwise (default): launch all tasks in parallel
 
 **Launch tasks**: Update plan status to `in_progress`, then:
 - `delegation == "subagent"`: Spawn my-dev-executor agent with `run_in_background=true`
@@ -86,7 +115,11 @@ $COMPLETED_DEPENDENCY_SUMMARIES
 
 ## Deliverables
 1. Implement the changes
-2. Commit with message: "feat($FEATURE): $TASK_TITLE"
+2. Commit using the format from tuning config:
+   ```bash
+   COMMIT_FORMAT=$(echo "$INIT" | jq -r '.tuning.commit_format')
+   ```
+   Apply $COMMIT_FORMAT, replacing `{feature}` with feature name and `{title}` with task title.
 3. Report: what changed, concerns, deviations
 </agent_prompt>
 
@@ -97,6 +130,22 @@ $COMPLETED_DEPENDENCY_SUMMARIES
 - Failure: update status to `failed`, record error.
 
 **Write updated statuses to plan file.** Update `plan_progress` in STATE.md.
+
+**Enhancement: --review-each** (if `REVIEW_EACH == "true"`):
+After each task completes successfully, spawn a lightweight my-dev-reviewer with only the task's diff:
+```bash
+git -C "$DEV_WORKTREE" diff HEAD~1 HEAD
+```
+If review finds CRITICAL issues, mark task as `needs-fix` and re-queue in next wave.
+
+**Enhancement: --verify** (if `VERIFY_EACH == "true"`):
+After all tasks in wave complete, run a verification pass on affected dev worktrees:
+```bash
+# For each repo touched in this wave:
+cd "$DEV_WORKTREE" && make lint 2>/dev/null || echo "no lint"
+cd "$DEV_WORKTREE" && make test 2>/dev/null || echo "no test"
+```
+If verification fails, report which repo/test failed and pause for user decision.
 
 **Display progress** after each wave:
 ```
@@ -114,7 +163,11 @@ MAX_RETRIES=$(echo "$INIT" | jq -r '.tuning.max_task_retries')
 
 When a task fails:
 1. Mark as `failed` in plan, mark dependent tasks as `blocked`
-2. Present options:
+2. **Guarantee: --persistent** (if `PERSISTENT == "true"`):
+   - Auto-select retry (option a) without asking user
+   - Include the error context in the retry prompt for self-correction
+   - If retries exhausted ($MAX_RETRIES), fall through to manual options
+3. **Standard mode** (no --persistent): Present options:
    - a) Retry task (re-spawn with error context, max $MAX_RETRIES retries)
    - b) Debug: `/devflow debug $FEATURE-task$N`
    - c) Skip and continue (dependent tasks blocked)

@@ -42,20 +42,41 @@ try {
       const { loadConfig } = require('./lib/config.cjs');
       const root = findWorkspaceRoot();
       let profile = 'balanced';
+      let agentModels = {};
       if (root) {
         try {
           const config = loadConfig(root);
           profile = (config.defaults && config.defaults.model_profile) || 'balanced';
+          agentModels = (config.defaults && config.defaults.agent_models) || {};
         } catch (_) { /* fallback to balanced */ }
       }
 
-      const shortName = agent.replace('my-dev-', '');
+      // Per-agent override from config takes highest priority
+      if (agentModels[agent]) {
+        output({ agent, model: agentModels[agent], profile, override: true });
+        break;
+      }
+
+      // Profile-based resolution (strip any prefix to match short name)
+      const shortName = agent.replace(/^my-dev-/, '').replace(/^devflow-/, '');
       const profileMap = PROFILES[profile] || PROFILES.balanced;
       const model = profileMap[shortName];
       if (!model) {
         process.stderr.write(`[devflow] WARN: Unknown agent '${agent}', defaulting to sonnet.\n`);
       }
       output({ agent, model: model || 'sonnet', profile });
+      break;
+    }
+    case 'classify': {
+      const { classifyTaskSize } = require('./lib/classify.cjs');
+      const prompt = [subcommand, ...rest].filter(Boolean).join(' ');
+      output(classifyTaskSize(prompt));
+      break;
+    }
+    case 'check-specificity': {
+      const { checkSpecificity } = require('./lib/specificity.cjs');
+      const prompt = [subcommand, ...rest].filter(Boolean).join(' ');
+      output(checkSpecificity(prompt));
       break;
     }
     case 'verify': {
@@ -101,6 +122,11 @@ try {
       } else {
         error(`Unknown features subcommand: ${subcommand}. Use: list, active, switch`);
       }
+      break;
+    }
+    case 'agents': {
+      const { handleAgents } = require('./lib/agents.cjs');
+      handleAgents(subcommand);
       break;
     }
     default:
