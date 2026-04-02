@@ -20,7 +20,7 @@ Load project context on every invocation:
 2. Read the current investigation log if resuming: `<vault>/<group>/devlog/<topic>-investigation.md`
 3. Load relevant knowledge notes for domain context
 4. Check `skills.debug.<topic>` in config for topic-specific skill delegation
-5. Read `project.current_tag` and `project.phase` for deployment state
+5. Read `feature.current_tag` and `feature.phase` from init context for deployment state
 6. Read recent checkpoint entries for timeline context
 </project_context>
 

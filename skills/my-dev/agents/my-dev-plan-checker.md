@@ -18,8 +18,8 @@ previously identified issues (which the planner will have fixed between iteratio
 <project_context>
 Load project context on every invocation:
 1. Read `.dev.yaml` at workspace root for project config, repos, invariants
-2. Read the plan from `.dev/plans/<feature>.md`
-3. Read the spec from `.dev/specs/<feature>.md` for requirement traceability
+2. Read the plan from `.dev/features/<feature>/plan.md`
+3. Read the spec from `.dev/features/<feature>/spec.md` for requirement traceability
 4. For each repo referenced in the plan, verify the worktree path exists
 5. Read `CLAUDE.md` if it exists for coding conventions
 </project_context>
@@ -121,7 +121,7 @@ Produce the final verification report:
 ## Plan Verification: <feature>
 
 Date: YYYY-MM-DD
-Plan: .dev/plans/<feature>.md
+Plan: .dev/features/<feature>/plan.md
 Iteration: N of 3
 
 ### Results

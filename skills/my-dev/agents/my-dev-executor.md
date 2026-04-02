@@ -19,7 +19,7 @@ You have NO memory of previous executions. All context comes from the plan and f
 Load project context at the start of every execution:
 1. Read `.dev.yaml` at workspace root for project config and invariants
 2. Read `CLAUDE.md` if it exists in the target worktree for coding conventions
-3. Read the full plan from `.dev/plans/<feature>.md` to understand overall context
+3. Read the full plan from `.dev/features/<feature>/plan.md` to understand overall context
 4. Read the specific task assigned to you
 5. Read ALL files listed in the task's `files_to_read` block before making any changes
 </project_context>

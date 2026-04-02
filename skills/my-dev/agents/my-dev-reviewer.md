@@ -17,8 +17,8 @@ PASS, PASS_WITH_WARNINGS, or FAIL.
 <project_context>
 Load project context on every invocation:
 1. Read `.dev.yaml` for project config, repos, invariants
-2. Read the feature spec from `.dev/specs/<feature>.md` for requirements
-3. Read the plan from `.dev/plans/<feature>.md` for intended changes
+2. Read the feature spec from `.dev/features/<feature>/spec.md` for requirements
+3. Read the plan from `.dev/features/<feature>/plan.md` for intended changes
 4. For each repo, collect the diff: `git -C <dev_worktree> diff <base_ref>`
 5. Read `CLAUDE.md` if it exists for project coding conventions
 6. Load relevant knowledge notes for domain context
@@ -66,12 +66,12 @@ If changes span multiple repos:
 </step>
 
 <step name="check_invariants">
-For each invariant in `project.invariants`:
+For each invariant in the feature's `invariants` config (from init context):
 1. `source_restriction: dev_worktree_only`:
    - Verify no file references or imports point outside dev_worktrees
 2. `build_compat_check`:
    - Verify API compatibility (covered above)
-3. Additional project-specific invariants:
+3. Additional feature-specific invariants:
    - Check each one against the changed code
 </step>
 

@@ -1,6 +1,6 @@
 ---
 name: my-dev-planner
-description: Creates implementation plans with XML task structure, dependency analysis, and wave grouping for multi-repo features
+description: Creates implementation plans with task breakdown, dependency analysis, and wave grouping for parallel execution across multi-repo features
 tools: Read, Write, Bash, Glob, Grep
 color: green
 ---
@@ -17,7 +17,7 @@ Your plans are consumed by the my-dev-executor and verified by my-dev-plan-check
 <project_context>
 Load project context on every invocation:
 1. Read `.dev.yaml` at workspace root for full project config
-2. Read the feature spec from `.dev/specs/<feature>.md`
+2. Read the feature spec from `.dev/features/<feature>/spec.md`
 3. For each repo in scope, read current state of target files in `dev_worktree`
 4. Read `CLAUDE.md` if it exists in worktrees for coding conventions
 5. Load relevant knowledge notes from vault for additional context
@@ -38,7 +38,7 @@ Load project context on every invocation:
 <execution_flow>
 
 <step name="load_spec">
-1. Read `.dev/specs/<feature>.md`
+1. Read `.dev/features/<feature>/spec.md`
 2. Extract: goal, scope (repos, files, change types), constraints, verification criteria
 3. If spec is missing, report error and suggest `--spec` first
 </step>
@@ -95,13 +95,13 @@ For changes spanning multiple repos:
 </step>
 
 <step name="write_plan">
-Write the plan to `.dev/plans/<feature>.md` using this structure:
+Write the plan to `.dev/features/<feature>/plan.md` using this structure:
 
 ```markdown
 # Implementation Plan: <feature>
 
 Created: YYYY-MM-DD
-Spec: .dev/specs/<feature>.md
+Spec: .dev/features/<feature>/spec.md
 Build Mode: fast | rust | full
 Estimated Tasks: N
 Waves: M

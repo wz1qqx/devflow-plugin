@@ -1,14 +1,12 @@
 ---
 name: devflow
 description: >
-  /devflow — Universal Development Lifecycle Management. 管理多仓库开发生命周期：
-  结构化编码(spec/plan/exec/review)、worktree 管理、镜像构建、K8s 部署、
-  benchmark 验证、Grafana 可观测性、debug 调查、知识库集成。
-  当用户提到构建镜像、部署、benchmark、dev worktree、项目状态、debug 调查、
-  知识库覆盖、checkpoint、回滚部署、查看改动 diff、清理资源、结构化开发、
-  feature spec、代码审查、监控面板、性能分析等任何开发运维操作时，使用此 skill。
-  即使用户没有明确说 "/devflow"，只要涉及项目的
-  code/build/deploy/verify/observe/rollback/diff/clean 流程，也应该主动建议使用。
+  Multi-repo development lifecycle: structured coding (spec/plan/exec/review),
+  container build, K8s deploy, benchmark verify, Grafana observe, debug investigation.
+  Trigger for: build image, deploy, benchmark, worktree, project status, debug, rollback,
+  diff, clean, feature spec, code review, monitoring, checkpoint, resume/pause session.
+  Proactively suggest even without explicit "/devflow" — any code/build/deploy/verify/observe
+  workflow in a .dev.yaml project should use this skill.
 ---
 
 # /devflow — Universal Development Lifecycle Management
@@ -41,7 +39,7 @@ Workspace (固定，一个 .dev.yaml)
 
 ## Commands (Layer 1 — Entry Points)
 
-Each action has a dedicated command at `~/.claude/commands/devflow/<action>.md`.
+Each action has a dedicated command in the plugin's `commands/devflow/<action>.md`.
 Invoke via `/devflow:<action>` or parse from `$ARGUMENTS` when called as `/devflow <action>`.
 
 | Command | Description | Workflow |
@@ -198,10 +196,18 @@ Obsidian Vault (永久记忆 · 第二大脑) [OPTIONAL]
   STATE.md      ← position, decisions[], blockers[], metrics
   HANDOFF.json  ← 会话交接 (pause → resume)
   features/<feature>/
-    spec.md, context.md, research.md, plan.md, review.md, summary.md
+    spec.md, context.md, plan.md, review.md, summary.md, devlog.md
        ↑ 读取
 .dev.yaml (项目配置)  |  hooks/ (行为记忆)
 ```
+
+**Canonical artifact paths** (all under `.dev/features/<feature>/`):
+- `spec.md` — feature specification
+- `context.md` — discuss decisions
+- `plan.md` — implementation plan with wave ordering
+- `review.md` — code review findings + verdict
+- `summary.md` — execution summary
+- `devlog.md` — feature devlog index
 
 ### Knowledge Sink Rules
 - `learn` → Obsidian `knowledge/<feature>.md` (if vault configured)

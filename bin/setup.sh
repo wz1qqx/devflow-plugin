@@ -1,82 +1,36 @@
 #!/bin/bash
-# devflow plugin setup script
-# Creates symlinks so that ~/.claude/my-dev points to the plugin's skill directory
+# devflow plugin — local development helper
+#
+# For marketplace users: no setup needed. Install via:
+#   claude plugin marketplace add wz1qqx/devflow-plugin
+#   claude plugin install devflow@devflow
+#
+# This script is ONLY for local development:
+#   - Verifies prerequisites (Node.js, python3)
+#   - Tests CLI tools are callable
+#   - Does NOT create symlinks (marketplace handles discovery)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILL_ROOT="$PLUGIN_ROOT/skills/my-dev"
-COMMANDS_SRC="$PLUGIN_ROOT/commands/devflow"
-HOOKS_SRC="$PLUGIN_ROOT/hooks"
 
-TARGET_SKILL="$HOME/.claude/my-dev"
-TARGET_COMMANDS="$HOME/.claude/commands/devflow"
-TARGET_HOOKS_DIR="$HOME/.claude/hooks"
-
-echo "=== devflow plugin setup ==="
+echo "=== devflow development check ==="
 echo "Plugin root: $PLUGIN_ROOT"
 echo ""
 
-# --- 1. Skill symlink: ~/.claude/my-dev → plugin skills/my-dev ---
-if [ -L "$TARGET_SKILL" ]; then
-  CURRENT=$(readlink "$TARGET_SKILL")
-  if [ "$CURRENT" = "$SKILL_ROOT" ]; then
-    echo "[OK] ~/.claude/my-dev already points to plugin"
-  else
-    echo "[UPDATE] Updating symlink: $CURRENT → $SKILL_ROOT"
-    ln -sfn "$SKILL_ROOT" "$TARGET_SKILL"
-  fi
-elif [ -e "$TARGET_SKILL" ]; then
-  BACKUP="$TARGET_SKILL.bak.$(date +%s)"
-  echo "[BACKUP] Existing ~/.claude/my-dev → $BACKUP"
-  mv "$TARGET_SKILL" "$BACKUP"
-  ln -sfn "$SKILL_ROOT" "$TARGET_SKILL"
-  echo "[OK] Symlink created: ~/.claude/my-dev → $SKILL_ROOT"
+# --- 1. Check marketplace installation ---
+MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1 || true)
+if [ -n "$MARKETPLACE_BIN" ]; then
+  echo "[OK] Marketplace install detected: $(dirname "$(dirname "$(dirname "$(dirname "$MARKETPLACE_BIN")")")")"
 else
-  mkdir -p "$(dirname "$TARGET_SKILL")"
-  ln -sfn "$SKILL_ROOT" "$TARGET_SKILL"
-  echo "[OK] Symlink created: ~/.claude/my-dev → $SKILL_ROOT"
+  echo "[INFO] No marketplace install found. For production use:"
+  echo "       claude plugin marketplace add wz1qqx/devflow-plugin"
+  echo "       claude plugin install devflow@devflow"
 fi
 
-# --- 2. Commands symlink: ~/.claude/commands/devflow → plugin commands/devflow ---
-if [ -L "$TARGET_COMMANDS" ]; then
-  CURRENT=$(readlink "$TARGET_COMMANDS")
-  if [ "$CURRENT" = "$COMMANDS_SRC" ]; then
-    echo "[OK] ~/.claude/commands/devflow already points to plugin"
-  else
-    echo "[UPDATE] Updating symlink: $CURRENT → $COMMANDS_SRC"
-    ln -sfn "$COMMANDS_SRC" "$TARGET_COMMANDS"
-  fi
-elif [ -e "$TARGET_COMMANDS" ]; then
-  BACKUP="$TARGET_COMMANDS.bak.$(date +%s)"
-  echo "[BACKUP] Existing commands dir → $BACKUP"
-  mv "$TARGET_COMMANDS" "$BACKUP"
-  ln -sfn "$COMMANDS_SRC" "$TARGET_COMMANDS"
-  echo "[OK] Symlink created: ~/.claude/commands/devflow → $COMMANDS_SRC"
-else
-  mkdir -p "$(dirname "$TARGET_COMMANDS")"
-  ln -sfn "$COMMANDS_SRC" "$TARGET_COMMANDS"
-  echo "[OK] Symlink created: ~/.claude/commands/devflow → $COMMANDS_SRC"
-fi
-
-# --- 3. Hook files: symlink to ~/.claude/hooks/ ---
-mkdir -p "$TARGET_HOOKS_DIR"
-for hook_file in "$HOOKS_SRC"/*.js; do
-  [ -f "$hook_file" ] || continue
-  BASENAME=$(basename "$hook_file")
-  TARGET="$TARGET_HOOKS_DIR/$BASENAME"
-  if [ -L "$TARGET" ] && [ "$(readlink "$TARGET")" = "$hook_file" ]; then
-    echo "[OK] Hook $BASENAME already linked"
-  else
-    # Backup existing non-symlink hook
-    [ -f "$TARGET" ] && [ ! -L "$TARGET" ] && mv "$TARGET" "${TARGET}.bak"
-    ln -sfn "$hook_file" "$TARGET"
-    echo "[OK] Hook $BASENAME linked"
-  fi
-done
-
-# --- 4. Verify prerequisites ---
+# --- 2. Verify prerequisites ---
 echo ""
 echo "=== Checking prerequisites ==="
 
@@ -93,27 +47,32 @@ else
   echo "[WARN] python3 not found — required for YAML parsing"
 fi
 
-if command -v jq &> /dev/null; then
-  echo "[OK] jq found"
-else
-  echo "[WARN] jq not found — required for JSON parsing in workflows"
-fi
-
-# --- 5. Verify tool is callable ---
+# --- 3. Verify tool is callable ---
 if [ -f "$SKILL_ROOT/bin/my-dev-tools.cjs" ]; then
   if node "$SKILL_ROOT/bin/my-dev-tools.cjs" features list > /dev/null 2>&1; then
     echo "[OK] CLI tools working (workspace detected)"
   else
-    # Expected on fresh install — no .dev.yaml yet
-    echo "[OK] CLI tools callable (no workspace configured yet — run /devflow:init after setup)"
+    echo "[OK] CLI tools callable (no workspace configured yet — run /devflow:init)"
   fi
 else
   echo "[ERROR] my-dev-tools.cjs not found at $SKILL_ROOT/bin/"
   exit 1
 fi
 
+# --- 4. Check for legacy symlinks ---
 echo ""
-echo "=== Setup complete ==="
+LEGACY=false
+[ -L "$HOME/.claude/my-dev" ] && echo "[LEGACY] ~/.claude/my-dev symlink exists (can be removed)" && LEGACY=true
+[ -L "$HOME/.claude/commands/devflow" ] && echo "[LEGACY] ~/.claude/commands/devflow symlink exists (can be removed)" && LEGACY=true
+[ -L "$HOME/.claude/hooks/my-dev-context-monitor.js" ] && echo "[LEGACY] ~/.claude/hooks/my-dev-context-monitor.js symlink exists (can be removed)" && LEGACY=true
+[ -L "$HOME/.claude/hooks/devflow-persistent.js" ] && echo "[LEGACY] ~/.claude/hooks/devflow-persistent.js symlink exists (can be removed)" && LEGACY=true
+[ -L "$HOME/.claude/hooks/my-dev-statusline.js" ] && echo "[LEGACY] ~/.claude/hooks/my-dev-statusline.js symlink exists (can be removed)" && LEGACY=true
+if [ "$LEGACY" = false ]; then
+  echo "[OK] No legacy symlinks found"
+fi
+
+echo ""
+echo "=== Check complete ==="
 echo ""
 echo "Next steps:"
 echo "  1. cd <your-project-directory>"

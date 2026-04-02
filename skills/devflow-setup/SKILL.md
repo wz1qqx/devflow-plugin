@@ -1,9 +1,9 @@
 ---
 name: devflow-setup
 description: >
-  First-time setup for the devflow plugin. Creates necessary symlinks and verifies prerequisites.
-  Use when: user says "setup devflow", "install devflow", "configure devflow",
-  or when devflow commands fail because ~/.claude/my-dev doesn't exist.
+  Verify devflow plugin installation and prerequisites.
+  Trigger when: user says "setup devflow", "check devflow", "devflow not working",
+  or when any /devflow command fails with plugin-not-found errors.
 argument-hint: "[--check]"
 allowed-tools:
   - Read
@@ -14,65 +14,81 @@ allowed-tools:
 
 # devflow Setup
 
-First-time installation and configuration for the devflow plugin.
+Verify marketplace installation and check prerequisites.
 
 ## Process
 
-<step name="CHECK_STATUS">
-Check if devflow is already set up.
+<step name="CHECK_INSTALL">
+Check if devflow is installed via marketplace.
 
 ```bash
-if [ -L "$HOME/.claude/my-dev" ]; then
-  LINK_TARGET=$(readlink "$HOME/.claude/my-dev")
-  echo "Status: INSTALLED (symlink → $LINK_TARGET)"
-elif [ -d "$HOME/.claude/my-dev" ]; then
-  echo "Status: LEGACY_INSTALL (direct directory, not plugin-managed)"
+PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+if [ -n "$PLUGIN_DIR" ]; then
+  PLUGIN_ROOT=$(cd "$(dirname "$PLUGIN_DIR")/../../.." && pwd)
+  echo "Status: INSTALLED (marketplace)"
+  echo "Plugin root: $PLUGIN_ROOT"
+  echo "Version: $(basename "$(dirname "$(dirname "$(dirname "$PLUGIN_DIR")")")")"
 else
   echo "Status: NOT_INSTALLED"
+  echo ""
+  echo "Install via marketplace:"
+  echo "  claude plugin marketplace add wz1qqx/devflow-plugin"
+  echo "  claude plugin install devflow@devflow"
 fi
 ```
 
 If `$ARGUMENTS` contains `--check`, report status and exit.
+If NOT_INSTALLED, show install instructions and stop.
 </step>
 
-<step name="FIND_PLUGIN_ROOT">
-Locate the plugin root directory (where .claude-plugin/plugin.json lives).
-
-The setup script is at `<plugin-root>/bin/setup.sh`. Find it:
+<step name="CHECK_PREREQUISITES">
+Verify required tools are available.
 
 ```bash
-# The SKILL.md that loaded us is inside the plugin
-# Walk up from ~/.claude/my-dev (if symlink exists) or search plugins cache
-PLUGIN_ROOT=""
-if [ -L "$HOME/.claude/my-dev" ]; then
-  SKILL_DIR=$(readlink "$HOME/.claude/my-dev")
-  PLUGIN_ROOT=$(cd "$SKILL_DIR/../.." && pwd)
-elif [ -d "$HOME/.claude/plugins" ]; then
-  # Search in plugin cache
-  PLUGIN_ROOT=$(find "$HOME/.claude/plugins/cache" -name "plugin.json" -path "*/devflow/*" -exec dirname {} \; 2>/dev/null | head -1)
-  [ -n "$PLUGIN_ROOT" ] && PLUGIN_ROOT=$(cd "$PLUGIN_ROOT/.." && pwd)
-fi
+echo "=== Prerequisites ==="
+command -v node &>/dev/null && echo "[OK] Node.js $(node --version)" || echo "[FAIL] Node.js not found — required"
+command -v python3 &>/dev/null && echo "[OK] python3" || echo "[FAIL] python3 not found — required for YAML parsing"
+```
 
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/bin/setup.sh" ]; then
-  echo "ERROR: Cannot locate devflow plugin root. Please run setup manually:"
-  echo "  bash <path-to-devflow-plugin>/bin/setup.sh"
-  exit 1
+If any FAIL, advise the user to install the missing tools before proceeding.
+</step>
+
+<step name="VERIFY_TOOLS">
+Test that CLI tools are callable.
+
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+if [ -n "$DEVFLOW_BIN" ] && node "$DEVFLOW_BIN" features list >/dev/null 2>&1; then
+  echo "[OK] CLI tools working (workspace detected)"
+else
+  echo "[OK] CLI tools callable (no workspace configured yet)"
 fi
 ```
 </step>
 
-<step name="RUN_SETUP">
-Execute the setup script.
+<step name="CLEANUP_LEGACY">
+Check for and clean up legacy symlinks from older installations.
 
 ```bash
-bash "$PLUGIN_ROOT/bin/setup.sh"
+LEGACY_ITEMS=()
+[ -L "$HOME/.claude/my-dev" ] && LEGACY_ITEMS+=("~/.claude/my-dev (symlink)")
+[ -L "$HOME/.claude/commands/devflow" ] && LEGACY_ITEMS+=("~/.claude/commands/devflow (symlink)")
+[ -L "$HOME/.claude/hooks/my-dev-context-monitor.js" ] && LEGACY_ITEMS+=("~/.claude/hooks/my-dev-context-monitor.js")
+[ -L "$HOME/.claude/hooks/devflow-persistent.js" ] && LEGACY_ITEMS+=("~/.claude/hooks/devflow-persistent.js")
+[ -L "$HOME/.claude/hooks/my-dev-statusline.js" ] && LEGACY_ITEMS+=("~/.claude/hooks/my-dev-statusline.js")
 ```
 
-Report the output to the user.
+If legacy items found, ask via AskUserQuestion:
+- "发现旧版安装遗留的 symlink，清理掉？"
+  - "是，清理" → remove each symlink with `rm`
+  - "不，保留" → skip
+
+Also check if `~/.claude/settings.json` contains hardcoded hook paths (not using `${CLAUDE_PLUGIN_ROOT}`).
+If found, advise user to remove them to avoid duplicate hook triggers.
 </step>
 
 <step name="INIT_WORKSPACE">
-After setup, ask if the user wants to initialize a workspace.
+After checks pass, ask if the user wants to initialize a workspace.
 
 Ask via AskUserQuestion:
 - "要在当前目录初始化 devflow workspace 吗？"

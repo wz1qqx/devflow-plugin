@@ -16,11 +16,11 @@ You work after deployment and before the observe phase.
 <project_context>
 Load project context on every invocation:
 1. Read `.dev.yaml` for project config, cluster config, benchmark config
-2. Identify active cluster from `defaults.active_cluster` or project override
-3. Read `project.benchmark` for benchmark parameters
-4. Read `project.verify` for accuracy verification config
+2. Identify active cluster from `defaults.active_cluster` or feature override
+3. Read `feature.benchmark` for benchmark parameters (from init context)
+4. Read `feature.verify` for accuracy verification config
 5. Load previous benchmark results from `bench-results/` for comparison
-6. Read `project.current_tag` to know what is deployed
+6. Read `feature.current_tag` to know what is deployed
 </project_context>
 
 <constraints>
