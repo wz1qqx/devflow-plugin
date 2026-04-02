@@ -7,6 +7,7 @@ allowed-tools:
   - Write
   - Bash
   - Glob
+  - AskUserQuestion
 ---
 <objective>
 Manage cluster profiles in .dev.yaml. Add new clusters, switch active cluster, or list available ones.

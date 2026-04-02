@@ -9,6 +9,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - AskUserQuestion
 ---
 <objective>
 Run post-deployment verification suites including smoke tests, benchmarks, accuracy checks, or full verification.

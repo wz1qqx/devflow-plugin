@@ -28,7 +28,7 @@ commands:
     argument-hint: "<add|use|list> [name]"
     objective: Manage cluster profiles in .dev.yaml. Add new clusters, switch active cluster, or list available ones.
     workflow: cluster.md
-    allowed-tools: [Read, Write, Bash, Glob]
+    allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
 
   debug:
     description: Investigation mode - structured debugging with context gathering
@@ -85,7 +85,7 @@ commands:
     description: Auto-detect project state and suggest the next workflow step
     objective: Read project state and suggest the most logical next action based on current phase and artifacts.
     workflow: next.md
-    allowed-tools: [Read, Bash, Glob, Grep]
+    allowed-tools: [Read, Bash, Glob, Grep, AskUserQuestion]
 
   observe:
     description: Observability — deploy monitoring, query metrics, analyze performance
@@ -131,7 +131,7 @@ commands:
     description: Switch active feature context
     argument-hint: "<feature-name>"
     objective: Switch the active feature by updating defaults.active_feature in .dev.yaml and loading the target feature's context.
-    allowed-tools: [Read, Write, Bash, Glob]
+    allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
     references:
       - "@~/.claude/my-dev/references/schema.md"
 
@@ -140,4 +140,4 @@ commands:
     argument-hint: "[--smoke|--bench|--accuracy|--full]"
     objective: Run post-deployment verification suites including smoke tests, benchmarks, accuracy checks, or full verification.
     workflow: verify.md
-    allowed-tools: [Read, Write, Bash, Glob, Grep, Agent]
+    allowed-tools: [Read, Write, Bash, Glob, Grep, Agent, AskUserQuestion]

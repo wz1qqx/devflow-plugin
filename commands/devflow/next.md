@@ -6,6 +6,7 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
+  - AskUserQuestion
 ---
 <objective>
 Read project state and suggest the most logical next action based on current phase and artifacts.

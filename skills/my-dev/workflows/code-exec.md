@@ -42,6 +42,18 @@ Behavior: execution=$( [ "$SEQUENTIAL" = "true" ] && echo "sequential" || echo "
           enhancement=$( [ "$VERIFY_EACH" = "true" ] && echo "+verify" )$( [ "$REVIEW_EACH" = "true" ] && echo " +review-each" )
           guarantee=$( [ "$PERSISTENT" = "true" ] && echo "persistent" || echo "standard" )
 ```
+
+**Activate persistent mode Stop hook** (if `PERSISTENT == "true"`):
+```bash
+PERSISTENT_STATE="$TMPDIR/devflow-persistent-$PPID.json"
+if [ "$PERSISTENT" = "true" ]; then
+  MAX_ITER=$(echo "$INIT" | jq -r '.tuning.max_task_retries // 10')
+  cat > "$PERSISTENT_STATE" << EOF
+{"active":true,"iteration":0,"max_iterations":$((MAX_ITER * 3)),"prompt":"Continue executing plan for $FEATURE","started_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+EOF
+fi
+```
+This enables the Stop hook (`devflow-persistent.js`) to re-inject continuation if the session tries to end mid-execution.
 </step>
 
 <step name="LOAD_PLAN">
@@ -201,6 +213,12 @@ Checkpoint (@references/shared-patterns.md#checkpoint):
 node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
   --action "code-exec" \
   --summary "Executed $DONE/$TOTAL tasks for $FEATURE"
+```
+
+**Deactivate persistent mode** (if it was active):
+```bash
+PERSISTENT_STATE="$TMPDIR/devflow-persistent-$PPID.json"
+[ -f "$PERSISTENT_STATE" ] && rm -f "$PERSISTENT_STATE"
 ```
 </step>
 </process>

@@ -7,6 +7,7 @@ allowed-tools:
   - Write
   - Bash
   - Glob
+  - AskUserQuestion
 ---
 <objective>
 Switch the active feature by updating defaults.active_feature in .dev.yaml and loading the target feature's context.

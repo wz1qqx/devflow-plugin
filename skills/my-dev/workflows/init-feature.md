@@ -83,7 +83,7 @@ Persist feature configuration and state.
        <repo>:
          base_ref: <baseline>
          dev_worktree: <worktree_dir>
-     phase: spec
+     phase: init
    ```
 2. Set `defaults.active_feature` to this feature
 3. Create `mkdir -p .dev/features/$FEATURE_NAME`

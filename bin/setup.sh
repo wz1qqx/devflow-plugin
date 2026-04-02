@@ -98,11 +98,11 @@ fi
 
 # --- 5. Verify tool is callable ---
 if [ -f "$SKILL_ROOT/bin/my-dev-tools.cjs" ]; then
-  TEST_OUTPUT=$(node "$SKILL_ROOT/bin/my-dev-tools.cjs" features list 2>&1 || true)
-  if echo "$TEST_OUTPUT" | grep -q "error\|Error\|Cannot find"; then
-    echo "[INFO] CLI tools accessible (no workspace configured yet — expected for fresh install)"
+  if node "$SKILL_ROOT/bin/my-dev-tools.cjs" features list > /dev/null 2>&1; then
+    echo "[OK] CLI tools working (workspace detected)"
   else
-    echo "[OK] CLI tools working"
+    # Expected on fresh install — no .dev.yaml yet
+    echo "[OK] CLI tools callable (no workspace configured yet — run /devflow:init after setup)"
   fi
 else
   echo "[ERROR] my-dev-tools.cjs not found at $SKILL_ROOT/bin/"

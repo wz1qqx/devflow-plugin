@@ -15,11 +15,14 @@ Claude Code plugin for managing multi-repo development lifecycles: structured co
 
 ## Prerequisites
 
+**Core (required):**
 - **Node.js** >= 18
-- **Python 3** (for YAML parsing)
-- **jq** (for JSON processing in workflows)
-- **kubectl** (for K8s operations)
-- **ssh** (for remote build server and cluster access)
+- **Python 3** + **PyYAML** (`pip install pyyaml`) — for .dev.yaml parsing
+
+**Optional (for specific workflows):**
+- **jq** — JSON processing (workflows reference it but Claude can use alternatives)
+- **kubectl** — K8s operations (deploy, verify, rollback, cluster)
+- **ssh** — remote build server and cluster access (build, deploy)
 
 ## Installation
 

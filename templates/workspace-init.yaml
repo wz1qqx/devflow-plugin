@@ -42,7 +42,7 @@ repos:
 #     url: http://grafana:3000
 
 defaults:
-  active_feature: my-feature
+  # active_feature: my-feature     # Uncomment after creating a feature with /devflow:init feature
   # active_cluster: dev
 
 # ═══════════════════════════════════════
