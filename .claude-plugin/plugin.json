@@ -8,6 +8,5 @@
   "license": "MIT",
   "keywords": ["devops", "workflow", "multi-repo", "k8s", "lifecycle"],
   "skills": "./skills/",
-  "commands": "./commands/",
-  "hooks": "./hooks/hooks.json"
+  "commands": "./commands/"
 }
