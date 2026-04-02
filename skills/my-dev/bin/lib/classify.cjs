@@ -60,7 +60,8 @@ function classifyTaskSize(prompt) {
     return { size: 'large', reason: 'escape_hatch', pipeline: PIPELINE_MAP.large };
   }
 
-  const wordCount = trimmed.split(/\s+/).length;
+  const { countEffectiveWords } = require('./core.cjs');
+  const wordCount = countEffectiveWords(trimmed);
   const hasLargeSignal = LARGE_SIGNALS.some(r => r.test(trimmed));
   const hasSmallSignal = SMALL_SIGNALS.some(r => r.test(trimmed));
 

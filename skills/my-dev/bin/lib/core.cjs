@@ -51,4 +51,22 @@ function findWorkspaceRoot(startDir) {
   return null;
 }
 
-module.exports = { output, error, parseArgs, findWorkspaceRoot, expandHome };
+/**
+ * Count effective words in text, handling CJK characters.
+ * CJK characters (without spaces between them) each count as ~1.5 word equivalents.
+ * Code blocks are stripped before counting.
+ */
+function countEffectiveWords(text) {
+  if (!text) return 0;
+  // Strip code blocks
+  const stripped = text.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '');
+  // Count CJK characters (CJK Unified Ideographs range)
+  const cjkChars = (stripped.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
+  // Count space-separated words (non-CJK)
+  const nonCjk = stripped.replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, ' ');
+  const asciiWords = nonCjk.split(/\s+/).filter(w => w.length > 0).length;
+  // Each CJK char ≈ 1.5 word equivalents (a Chinese sentence of 10 chars ≈ 15 English words)
+  return Math.round(asciiWords + cjkChars * 1.5);
+}
+
+module.exports = { output, error, parseArgs, findWorkspaceRoot, expandHome, countEffectiveWords };

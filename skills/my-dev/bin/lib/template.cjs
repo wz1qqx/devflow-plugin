@@ -107,8 +107,27 @@ Cluster: {{cluster}}
 `,
 };
 
+function loadTemplateFromFile(type) {
+  // Try project-local override first, then plugin templates
+  const { findWorkspaceRoot } = require('./core.cjs');
+  const root = findWorkspaceRoot();
+  if (root) {
+    const projectPath = path.join(root, '.devflow', 'templates', `${type}.md`);
+    if (fs.existsSync(projectPath)) {
+      return fs.readFileSync(projectPath, 'utf8');
+    }
+  }
+  // Plugin templates directory (sibling of bin/)
+  const pluginPath = path.resolve(__dirname, '..', '..', 'templates', `${type}.md`);
+  if (fs.existsSync(pluginPath)) {
+    return fs.readFileSync(pluginPath, 'utf8');
+  }
+  return null;
+}
+
 function fillTemplate(type, vars) {
-  const template = TEMPLATES[type];
+  // Priority: project .devflow/templates/ → plugin templates/ → hardcoded fallback
+  const template = loadTemplateFromFile(type) || TEMPLATES[type];
   if (!template) {
     error(`Unknown template type: ${type}. Available: ${Object.keys(TEMPLATES).join(', ')}`);
   }

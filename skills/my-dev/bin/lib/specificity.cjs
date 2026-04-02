@@ -50,9 +50,9 @@ function checkSpecificity(prompt) {
     return { specific: true, reason: 'has_signals', signal_count: matchedSignals.length };
   }
 
-  // Check effective word count (strip code blocks)
-  const stripped = trimmed.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '');
-  const effectiveWords = stripped.split(/\s+/).filter(w => w.length > 0).length;
+  // Check effective word count (CJK-aware)
+  const { countEffectiveWords } = require('./core.cjs');
+  const effectiveWords = countEffectiveWords(trimmed);
 
   if (effectiveWords <= 10) {
     return { specific: false, reason: 'too_short', effective_words: effectiveWords, suggestion: 'discuss' };

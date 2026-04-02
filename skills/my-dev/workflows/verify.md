@@ -12,11 +12,18 @@ INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init verify)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 ```
 
-Parse flags from arguments:
-- `--smoke` (default if no flag): quick smoke test
-- `--bench`: full benchmark run
-- `--accuracy`: accuracy verification
-- `--full`: all of the above + observe --analyze
+Parse flags from arguments: `--smoke`, `--bench`, `--accuracy`, `--full`
+
+**If NO flag provided**: present modes via AskUserQuestion:
+
+| Mode | Description | Duration |
+|------|-------------|----------|
+| smoke | Quick health check: Pod status + single request test | ~1 min |
+| bench | Performance benchmark: full MTB run | ~10 min |
+| accuracy | Accuracy verification: output comparison + quality metrics | variable |
+| full | Complete: smoke + bench + accuracy | ~15 min |
+
+Let the user pick, then execute with that mode.
 
 Extract verify config:
 ```bash

@@ -60,9 +60,24 @@ Combined plan + execute in one pass.
 **Verify** (if --full): Run verify commands from plan, report pass/fail.
 </step>
 
+<step name="ERROR_HANDLING">
+If any tasks failed:
+
+```
+Quick task results: $DONE/$TOTAL completed | $FAILED failed
+```
+
+Options:
+- If failed < total: "Partial success. Review completed tasks? [Y/n]"
+- If all failed: suggest escalating to full pipeline:
+  "All quick tasks failed. Consider `/devflow:code $FEATURE --spec` for a more structured approach."
+- Always: show error context from failed tasks for debugging
+</step>
+
 <step name="SAVE_SUMMARY">
 Save to `$QUICK_DIR/summary.md`:
 - Tasks completed with commit hashes
+- Tasks failed with error context
 - Files changed by repo
 
 Update STATE.md quick tasks table.

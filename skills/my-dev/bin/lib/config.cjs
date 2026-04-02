@@ -15,12 +15,18 @@ function loadConfig(workspaceRoot) {
     error(`.dev.yaml not found at ${yamlPath}`);
   }
   const yamlContent = fs.readFileSync(yamlPath, 'utf8');
+  if (!yamlContent.trim()) {
+    error('.dev.yaml is empty. Run /devflow:init workspace to initialize it.');
+  }
   try {
     const jsonStr = execSync(
       `python3 -c "import yaml,json,sys; print(json.dumps(yaml.safe_load(sys.stdin)))"`,
       { input: yamlContent, encoding: 'utf8', timeout: 10000 }
     ).trim();
     const raw = JSON.parse(jsonStr);
+    if (!raw || typeof raw !== 'object') {
+      error('.dev.yaml is empty or invalid. Run /devflow:init workspace to initialize it.');
+    }
     const config = { _root: root, _path: yamlPath, ...raw };
 
     if (config.schema_version !== 2) {

@@ -60,16 +60,19 @@ else
   echo "[OK] Symlink created: ~/.claude/commands/devflow → $COMMANDS_SRC"
 fi
 
-# --- 3. Hook files: copy to ~/.claude/hooks/ ---
+# --- 3. Hook files: symlink to ~/.claude/hooks/ ---
 mkdir -p "$TARGET_HOOKS_DIR"
 for hook_file in "$HOOKS_SRC"/*.js; do
   [ -f "$hook_file" ] || continue
   BASENAME=$(basename "$hook_file")
-  if [ -f "$TARGET_HOOKS_DIR/$BASENAME" ] && diff -q "$hook_file" "$TARGET_HOOKS_DIR/$BASENAME" > /dev/null 2>&1; then
-    echo "[OK] Hook $BASENAME already up to date"
+  TARGET="$TARGET_HOOKS_DIR/$BASENAME"
+  if [ -L "$TARGET" ] && [ "$(readlink "$TARGET")" = "$hook_file" ]; then
+    echo "[OK] Hook $BASENAME already linked"
   else
-    cp "$hook_file" "$TARGET_HOOKS_DIR/$BASENAME"
-    echo "[OK] Hook $BASENAME installed"
+    # Backup existing non-symlink hook
+    [ -f "$TARGET" ] && [ ! -L "$TARGET" ] && mv "$TARGET" "${TARGET}.bak"
+    ln -sfn "$hook_file" "$TARGET"
+    echo "[OK] Hook $BASENAME linked"
   fi
 done
 
