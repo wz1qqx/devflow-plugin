@@ -55,7 +55,7 @@ Standardized checkpoint call. Tag is auto-resolved from feature config — do no
 
 **Call:**
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "<action>" \
   --summary "<summary>"
 ```
@@ -79,7 +79,7 @@ Update feature stage and activity timestamp after workflow completion.
 
 **Call:**
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" state update phase <stage>
+node "$DEVFLOW_BIN" state update phase <stage>
 ```
 
 The CLI automatically updates `last_activity` timestamp when updating phase.

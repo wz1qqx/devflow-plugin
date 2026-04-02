@@ -8,7 +8,11 @@
 Load workspace configuration and parse sub-command.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init cluster)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init cluster)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 SUBCOMMAND=$(echo "$ARGUMENTS" | awk '{print $1}')  # add | use | list | probe
 CLUSTER_NAME=$(echo "$ARGUMENTS" | awk '{print $2}')

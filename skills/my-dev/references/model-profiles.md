@@ -31,7 +31,7 @@ defaults:
 ## Usage
 
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" resolve-model my-dev-planner
+node "$DEVFLOW_BIN" resolve-model my-dev-planner
 # Returns: opus (if balanced profile)
 ```
 

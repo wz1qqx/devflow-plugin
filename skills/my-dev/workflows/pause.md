@@ -4,7 +4,7 @@
 <core_principle>Nothing valuable should be lost between sessions. Working memory is ephemeral -- anything worth keeping must be explicitly saved to STATE.md or sunk to Obsidian.</core_principle>
 
 <references>
-@~/.claude/my-dev/references/memory-system.md
+@../references/memory-system.md
 </references>
 
 <process>
@@ -12,7 +12,11 @@
 Load current project state and configuration.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init resume)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init resume)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 ```
@@ -80,7 +84,9 @@ Update STATE.md with current position.
 
 If STATE.md does not exist, create from template:
 ```bash
-TEMPLATE="$HOME/.claude/my-dev/templates/state.md"
+# Template resolved relative to plugin
+DEVFLOW_ROOT=$(dirname "$(dirname "$DEVFLOW_BIN")")
+TEMPLATE="$DEVFLOW_ROOT/templates/state.md"
 ```
 
 Update frontmatter fields:
@@ -134,7 +140,7 @@ Check if there are sinkable artifacts:
 Record the pause in checkpoint log.
 
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "pause" \
   --summary "Session paused. Feature: $FEATURE, Stage: $FEATURE_STAGE, Progress: $PLAN_PROGRESS"
 ```

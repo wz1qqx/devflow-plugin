@@ -16,7 +16,7 @@ Run post-deployment verification suites including smoke tests, benchmarks, accur
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/verify.md
+@../../skills/my-dev/workflows/verify.md
 </execution_context>
 
 <context>
@@ -24,6 +24,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the verify workflow from @~/.claude/my-dev/workflows/verify.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init verify`
+Execute the verify workflow from @../../skills/my-dev/workflows/verify.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init verify`
 </process>

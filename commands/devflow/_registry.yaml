@@ -133,7 +133,7 @@ commands:
     objective: Switch the active feature by updating defaults.active_feature in .dev.yaml and loading the target feature's context.
     allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
     references:
-      - "@~/.claude/my-dev/references/schema.md"
+      - "@../../skills/my-dev/references/schema.md"
 
   verify:
     description: Post-deploy verification - smoke, bench, accuracy, or full

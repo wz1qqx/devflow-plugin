@@ -14,7 +14,7 @@ Scan for and optionally remove orphan worktrees, stale container images, and sta
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/clean.md
+@../../skills/my-dev/workflows/clean.md
 </execution_context>
 
 <context>
@@ -22,6 +22,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the clean workflow from @~/.claude/my-dev/workflows/clean.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init clean`
+Execute the clean workflow from @../../skills/my-dev/workflows/clean.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init clean`
 </process>

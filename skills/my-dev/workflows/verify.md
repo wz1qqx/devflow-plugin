@@ -8,7 +8,11 @@
 Parse verification flags and load configuration.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init verify)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init verify)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 ```
 
@@ -197,7 +201,7 @@ Update `.dev.yaml`:
 
 Checkpoint (@references/shared-patterns.md#checkpoint):
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "verify" \
   --summary "Verify $VERDICT: $CURRENT_TAG ($FLAGS)"
 ```

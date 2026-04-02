@@ -4,7 +4,7 @@
 <core_principle>Zero context loss across sessions. Load everything needed to continue where the user left off. HANDOFF.json gives precise position; STATE.md gives accumulated knowledge.</core_principle>
 
 <references>
-@~/.claude/my-dev/references/memory-system.md
+@../references/memory-system.md
 </references>
 
 <process>
@@ -12,7 +12,11 @@
 Load project state from configuration.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init resume)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init resume)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 PHASE=$(echo "$INIT" | jq -r '.feature.phase')

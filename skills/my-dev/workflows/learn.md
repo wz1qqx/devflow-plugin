@@ -4,8 +4,8 @@
 <core_principle>Base worktrees are the stable code source for research. Obsidian is the knowledge sink. Two layers: deep/ for human learning, knowledge/ for AI consumption. Deep is the source of truth; knowledge is derived from deep. Staleness is tracked via git commit IDs. Human Notes sections are preserved across refreshes.</core_principle>
 
 <references>
-@~/.claude/my-dev/references/knowledge-conventions.md
-@~/.claude/my-dev/references/memory-system.md
+@../references/knowledge-conventions.md
+@../references/memory-system.md
 </references>
 
 <process>
@@ -15,7 +15,11 @@ Load workspace configuration and resolve feature context.
 
 ```bash
 FEATURE="$1"
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init learn "$FEATURE")
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init learn "$FEATURE")
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 VAULT=$(echo "$INIT" | jq -r '.vault // empty')
 DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group // empty')

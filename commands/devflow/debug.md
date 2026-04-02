@@ -17,7 +17,7 @@ Enter structured investigation mode to diagnose issues with hypothesis tracking 
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/debug.md
+@../../skills/my-dev/workflows/debug.md
 </execution_context>
 
 <context>
@@ -25,6 +25,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the debug workflow from @~/.claude/my-dev/workflows/debug.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init debug`
+Execute the debug workflow from @../../skills/my-dev/workflows/debug.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init debug`
 </process>

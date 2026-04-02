@@ -14,7 +14,7 @@ Surface gray areas in a feature spec, ask the user to decide, and lock those dec
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/discuss.md
+@../../skills/my-dev/workflows/discuss.md
 </execution_context>
 
 <context>
@@ -22,6 +22,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the discuss workflow from @~/.claude/my-dev/workflows/discuss.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init discuss`
+Execute the discuss workflow from @../../skills/my-dev/workflows/discuss.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init discuss`
 </process>

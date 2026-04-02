@@ -23,7 +23,7 @@ description: >
 ```
 
 **Config**: `.dev.yaml` (workspace root, schema v2)
-**Schema**: [schema.md](~/.claude/my-dev/references/schema.md)
+**Schema**: [schema.md](./references/schema.md)
 **Vault**: Configured in `.dev.yaml` `vault` field (optional)
 
 ### Workspace vs Feature 模型
@@ -46,27 +46,27 @@ Invoke via `/devflow:<action>` or parse from `$ARGUMENTS` when called as `/devfl
 
 | Command | Description | Workflow |
 |---------|-------------|----------|
-| `/devflow:next` | Auto-detect state, suggest next step | [next.md](~/.claude/my-dev/workflows/next.md) |
-| `/devflow:quick` | Ad-hoc task with atomic commits (skip ceremony) | [quick.md](~/.claude/my-dev/workflows/quick.md) |
-| `/devflow:init` | `workspace`: 初始化 repo 集合 + 基础设施; `feature <name>`: 创建新 feature | [init.md](~/.claude/my-dev/workflows/init.md) / [init-feature.md](~/.claude/my-dev/workflows/init-feature.md) |
-| `/devflow:resume` | Restore session, show status, suggest next step | [resume.md](~/.claude/my-dev/workflows/resume.md) |
-| `/devflow:pause` | Save session state for later resume | [pause.md](~/.claude/my-dev/workflows/pause.md) |
-| `/devflow:discuss` | Lock decisions before planning (gray areas) | [discuss.md](~/.claude/my-dev/workflows/discuss.md) |
-| `/devflow:code` | Structured coding: auto-select pipeline depth | [code-*.md](~/.claude/my-dev/workflows/) |
-| `/devflow:build` | Build container image with incremental tag chain | [build.md](~/.claude/my-dev/workflows/build.md) |
-| `/devflow:deploy` | Deploy to K8s cluster | [deploy.md](~/.claude/my-dev/workflows/deploy.md) |
-| `/devflow:verify` | Post-deploy verification + benchmark + accuracy | [verify.md](~/.claude/my-dev/workflows/verify.md) |
-| `/devflow:observe` | Grafana dashboards, monitoring, metrics analysis | [observe.md](~/.claude/my-dev/workflows/observe.md) |
-| `/devflow:debug` | Investigation mode + learned hook evolution | [debug.md](~/.claude/my-dev/workflows/debug.md) |
-| `/devflow:diff` | Show dev_worktree vs base_ref changes | [info.md](~/.claude/my-dev/workflows/info.md) |
-| `/devflow:rollback` | Deploy rollback to previous tag | [rollback.md](~/.claude/my-dev/workflows/rollback.md) |
+| `/devflow:next` | Auto-detect state, suggest next step | [next.md](./workflows/next.md) |
+| `/devflow:quick` | Ad-hoc task with atomic commits (skip ceremony) | [quick.md](./workflows/quick.md) |
+| `/devflow:init` | `workspace`: 初始化 repo 集合 + 基础设施; `feature <name>`: 创建新 feature | [init.md](./workflows/init.md) / [init-feature.md](./workflows/init-feature.md) |
+| `/devflow:resume` | Restore session, show status, suggest next step | [resume.md](./workflows/resume.md) |
+| `/devflow:pause` | Save session state for later resume | [pause.md](./workflows/pause.md) |
+| `/devflow:discuss` | Lock decisions before planning (gray areas) | [discuss.md](./workflows/discuss.md) |
+| `/devflow:code` | Structured coding: auto-select pipeline depth | [code-*.md](./workflows/) |
+| `/devflow:build` | Build container image with incremental tag chain | [build.md](./workflows/build.md) |
+| `/devflow:deploy` | Deploy to K8s cluster | [deploy.md](./workflows/deploy.md) |
+| `/devflow:verify` | Post-deploy verification + benchmark + accuracy | [verify.md](./workflows/verify.md) |
+| `/devflow:observe` | Grafana dashboards, monitoring, metrics analysis | [observe.md](./workflows/observe.md) |
+| `/devflow:debug` | Investigation mode + learned hook evolution | [debug.md](./workflows/debug.md) |
+| `/devflow:diff` | Show dev_worktree vs base_ref changes | [info.md](./workflows/info.md) |
+| `/devflow:rollback` | Deploy rollback to previous tag | [rollback.md](./workflows/rollback.md) |
 | `/devflow:switch` | Switch active feature | workflow inline |
-| `/devflow:clean` | Clean up unused resources | [clean.md](~/.claude/my-dev/workflows/clean.md) |
+| `/devflow:clean` | Clean up unused resources | [clean.md](./workflows/clean.md) |
 | `/devflow:log` | Quick checkpoint entry | workflow inline |
-| `/devflow:status` | Full project status overview | [info.md](~/.claude/my-dev/workflows/info.md) |
+| `/devflow:status` | Full project status overview | [info.md](./workflows/info.md) |
 | `/devflow:cluster` | Manage cluster profiles | workflow inline |
-| `/devflow:knowledge` | Knowledge base operations | [knowledge-maintain.md](~/.claude/my-dev/workflows/knowledge-maintain.md) |
-| `/devflow:learn` | Deep-dive learning (→ Obsidian knowledge) | [learn.md](~/.claude/my-dev/workflows/learn.md) |
+| `/devflow:knowledge` | Knowledge base operations | [knowledge-maintain.md](./workflows/knowledge-maintain.md) |
+| `/devflow:learn` | Deep-dive learning (→ Obsidian knowledge) | [learn.md](./workflows/learn.md) |
 
 ## Dispatch Rule
 
@@ -110,7 +110,7 @@ Build and deploy workflows check if the request is specific enough:
 
 ## Workflows (Layer 2 — Orchestration)
 
-Located at `~/.claude/my-dev/workflows/`. Orchestrators stay lean:
+Located at `./workflows/` (within the plugin). Orchestrators stay lean:
 - Load context via `my-dev-tools.cjs init <workflow>`
 - Spawn specialized agents with fresh context windows
 - Collect results and route to next step
@@ -126,7 +126,7 @@ Located at `~/.claude/my-dev/workflows/`. Orchestrators stay lean:
 
 ## Agents (Layer 3 — Execution)
 
-Built-in agents at `~/.claude/my-dev/agents/`. Add custom agents to `.devflow/agents/` (project-local, higher priority).
+Built-in agents at `./agents/` (within the plugin). Add custom agents to `.devflow/agents/` (project-local, higher priority).
 
 | Agent | Role | Tools | Model (balanced) |
 |-------|------|-------|-----------------|
@@ -142,49 +142,49 @@ Model routing controlled by `defaults.model_profile` (quality/balanced/budget). 
 
 ## CLI Tools (Layer 4 — State Management)
 
-Located at `~/.claude/my-dev/bin/my-dev-tools.cjs`.
+Located at `./bin/my-dev-tools.cjs` (auto-discovered at runtime).
 
 ```bash
 # Context loading (returns JSON with all workflow context)
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init <workflow> [args]
+node "$DEVFLOW_BIN" init <workflow> [args]
 
 # Config operations
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" config load
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" config get <key>
+node "$DEVFLOW_BIN" config load
+node "$DEVFLOW_BIN" config get <key>
 
 # State operations
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" state get [field]
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" state update <field> <value>
+node "$DEVFLOW_BIN" state get [field]
+node "$DEVFLOW_BIN" state update <field> <value>
 
 # Model resolution (profile-driven: quality/balanced/budget)
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" resolve-model <agent-name>
+node "$DEVFLOW_BIN" resolve-model <agent-name>
 
 # Task complexity classification
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" classify <prompt>
+node "$DEVFLOW_BIN" classify <prompt>
 
 # Prompt specificity check
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" check-specificity <prompt>
+node "$DEVFLOW_BIN" check-specificity <prompt>
 
 # Agent discovery (plugin + project .devflow/agents/)
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" agents list
+node "$DEVFLOW_BIN" agents list
 
 # Feature management
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" features list|active|switch
+node "$DEVFLOW_BIN" features list|active|switch
 
 # Template operations
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" template fill <type> [--vars]
+node "$DEVFLOW_BIN" template fill <type> [--vars]
 
 # Verification
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" verify plan-structure <file>
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" verify phase-completeness <feature>
+node "$DEVFLOW_BIN" verify plan-structure <file>
+node "$DEVFLOW_BIN" verify phase-completeness <feature>
 
 # Checkpoint
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint --action <action> --summary <text>
+node "$DEVFLOW_BIN" checkpoint --action <action> --summary <text>
 ```
 
 ## Memory System
 
-See [memory-system.md](~/.claude/my-dev/references/memory-system.md) for full specification.
+See [memory-system.md](./references/memory-system.md) for full specification.
 
 ### Memory Architecture (4 layers)
 
@@ -220,8 +220,8 @@ Obsidian Vault (永久记忆 · 第二大脑) [OPTIONAL]
 
 | Path | Contents |
 |------|----------|
-| `~/.claude/my-dev/references/` | schema.md, hooks.md, model-profiles.md, memory-system.md |
-| `~/.claude/my-dev/templates/` | spec.md, plan.md, review.md, summary.md, state.md, context.md, experience.md |
+| `./references/` (within the plugin) | schema.md, hooks.md, model-profiles.md, memory-system.md |
+| `./templates/` (within the plugin) | spec.md, plan.md, review.md, summary.md, state.md, context.md, experience.md |
 | `.dev.yaml` | Project config (workspace root) |
 | `.dev/` | Working memory: STATE.md, HANDOFF.json, features/ |
 | `.devflow/agents/` | Project-local custom agent definitions (optional) |

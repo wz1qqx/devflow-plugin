@@ -8,7 +8,11 @@
 Load cluster and observability configuration.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init observe)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init observe)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 CLUSTER_NAME=$(echo "$INIT" | jq -r '.cluster.name')
 CLUSTER_SSH=$(echo "$INIT" | jq -r '.cluster.ssh')

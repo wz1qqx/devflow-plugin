@@ -13,7 +13,7 @@ Read project state and suggest the most logical next action based on current pha
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/next.md
+@../../skills/my-dev/workflows/next.md
 </execution_context>
 
 <context>
@@ -21,6 +21,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the next workflow from @~/.claude/my-dev/workflows/next.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init next`
+Execute the next workflow from @../../skills/my-dev/workflows/next.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init next`
 </process>

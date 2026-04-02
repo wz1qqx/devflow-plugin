@@ -26,25 +26,21 @@ Claude Code plugin for managing multi-repo development lifecycles: structured co
 
 ## Installation
 
-### Option 1: Local Plugin (Recommended for Development)
+### Marketplace (Recommended)
 
 ```bash
-# Clone the repo
-git clone <repo-url> ~/Documents/devflow-plugin
-
-# Run setup
-bash ~/Documents/devflow-plugin/bin/setup.sh
+# Add marketplace and install (2 commands)
+claude plugin marketplace add wz1qqx/devflow-plugin
+claude plugin install devflow@devflow
 ```
 
-### Option 2: Claude Code Plugin Marketplace
+Done. No setup step needed — the plugin works immediately after install.
+
+### Local Development
 
 ```bash
-# Add marketplace (once)
-# In Claude Code settings.json, add to extraKnownMarketplaces:
-# "devflow": { "source": { "source": "github", "repo": "<org>/devflow-plugin" } }
-
-# Then install
-/plugin install devflow@devflow
+git clone https://github.com/wz1qqx/devflow-plugin.git ~/devflow-plugin
+bash ~/devflow-plugin/bin/setup.sh   # Creates symlinks for local development
 ```
 
 After installation, run `/devflow-setup` in Claude Code to complete setup.

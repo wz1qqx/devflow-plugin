@@ -12,7 +12,7 @@ Display a comprehensive project overview including config, worktree states, acti
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/info.md
+@../../skills/my-dev/workflows/info.md
 </execution_context>
 
 <context>
@@ -20,6 +20,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the status workflow from @~/.claude/my-dev/workflows/info.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init status`
+Execute the status workflow from @../../skills/my-dev/workflows/info.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init status`
 </process>

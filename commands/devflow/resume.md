@@ -12,7 +12,7 @@ Restore worktree state, active tasks, and pending items from .dev.yaml and state
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/resume.md
+@../../skills/my-dev/workflows/resume.md
 </execution_context>
 
 <context>
@@ -20,6 +20,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the resume workflow from @~/.claude/my-dev/workflows/resume.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init resume`
+Execute the resume workflow from @../../skills/my-dev/workflows/resume.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init resume`
 </process>

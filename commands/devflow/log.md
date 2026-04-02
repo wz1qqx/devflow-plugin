@@ -12,7 +12,7 @@ Record a quick checkpoint in the devlog with current state, changes made, and an
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/log.md
+@../../skills/my-dev/workflows/log.md
 </execution_context>
 
 <context>
@@ -20,6 +20,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the log workflow from @~/.claude/my-dev/workflows/log.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init log`
+Execute the log workflow from @../../skills/my-dev/workflows/log.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init log`
 </process>

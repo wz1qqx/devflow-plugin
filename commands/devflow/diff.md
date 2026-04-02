@@ -13,7 +13,7 @@ Display a summary of uncommitted and staged changes across all worktrees (or a s
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/info.md
+@../../skills/my-dev/workflows/info.md
 </execution_context>
 
 <context>
@@ -21,6 +21,6 @@ diff $ARGUMENTS
 </context>
 
 <process>
-Execute the diff workflow from @~/.claude/my-dev/workflows/info.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init diff`
+Execute the diff workflow from @../../skills/my-dev/workflows/info.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init diff`
 </process>

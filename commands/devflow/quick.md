@@ -17,7 +17,7 @@ Execute a small task (max 3 tasks) with atomic commits, bypassing the full spec/
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/quick.md
+@../../skills/my-dev/workflows/quick.md
 </execution_context>
 
 <context>
@@ -25,6 +25,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the quick workflow from @~/.claude/my-dev/workflows/quick.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init quick`
+Execute the quick workflow from @../../skills/my-dev/workflows/quick.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init quick`
 </process>

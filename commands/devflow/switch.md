@@ -14,7 +14,7 @@ Switch the active feature by updating defaults.active_feature in .dev.yaml and l
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/references/schema.md
+@../../skills/my-dev/references/schema.md
 </execution_context>
 
 <context>
@@ -22,6 +22,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init switch`
+Load project config via: `node "$DEVFLOW_BIN" init switch`
 Execute inline based on arguments.
 </process>

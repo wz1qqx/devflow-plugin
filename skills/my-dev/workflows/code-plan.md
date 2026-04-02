@@ -8,7 +8,11 @@
 Initialize workflow context and validate prerequisites.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init code-plan)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init code-plan)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 PROJECT=$(echo "$INIT" | jq -r '.feature.name')
 FEATURE="$1"
@@ -130,7 +134,7 @@ State update (@references/shared-patterns.md#state-update): stage=`plan`, plan_p
 
 Checkpoint (@references/shared-patterns.md#checkpoint):
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "code-plan" \
   --summary "Plan created for $FEATURE: $TASK_COUNT tasks in $WAVE_COUNT waves"
 ```

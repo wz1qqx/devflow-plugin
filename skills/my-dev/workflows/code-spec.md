@@ -8,7 +8,11 @@
 Initialize workflow context and load project configuration.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init code-spec)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init code-spec)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 PROJECT=$(echo "$INIT" | jq -r '.feature.name')
 FEATURE="$1"  # Feature name from arguments
@@ -155,7 +159,7 @@ State update (@references/shared-patterns.md#state-update): stage=`spec`
 
 Checkpoint (@references/shared-patterns.md#checkpoint):
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "code-spec" \
   --summary "Spec created for feature: $FEATURE"
 ```

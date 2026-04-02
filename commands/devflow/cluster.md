@@ -14,7 +14,7 @@ Manage cluster profiles in .dev.yaml. Add new clusters, switch active cluster, o
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/cluster.md
+@../../skills/my-dev/workflows/cluster.md
 </execution_context>
 
 <context>
@@ -22,6 +22,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the cluster workflow from @~/.claude/my-dev/workflows/cluster.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init cluster`
+Execute the cluster workflow from @../../skills/my-dev/workflows/cluster.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init cluster`
 </process>

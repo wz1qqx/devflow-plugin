@@ -18,8 +18,8 @@ Route to the appropriate init workflow based on arguments:
 </objective>
 
 <execution_context>
-Workspace init: @~/.claude/my-dev/workflows/init.md
-Feature init:   @~/.claude/my-dev/workflows/init-feature.md
+Workspace init: @../../skills/my-dev/workflows/init.md
+Feature init:   @../../skills/my-dev/workflows/init-feature.md
 </execution_context>
 
 <context>
@@ -36,7 +36,7 @@ Extract the first token from `$ARGUMENTS`:
 
 ## 2a. Workspace Init
 
-Execute @~/.claude/my-dev/workflows/init.md end-to-end.
+Execute @../../skills/my-dev/workflows/init.md end-to-end.
 
 Pre-check: if `.dev.yaml` already exists:
 - Check `schema_version`. If `1` → suggest: "v1 config detected. Run `/devflow:init workspace` to upgrade to v2."
@@ -44,7 +44,7 @@ Pre-check: if `.dev.yaml` already exists:
 
 ## 2b. Feature Init
 
-Execute @~/.claude/my-dev/workflows/init-feature.md with the feature name.
+Execute @../../skills/my-dev/workflows/init-feature.md with the feature name.
 
 Pre-check: if `.dev.yaml` does not exist → abort with: "No workspace config found. Run `/devflow:init workspace` first."
 

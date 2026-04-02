@@ -8,7 +8,11 @@
 Initialize debug session and load context.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init debug)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init debug)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 TOPIC="$1"  # Debug topic from arguments
@@ -113,13 +117,13 @@ Save experience to `.dev/features/$FEATURE/debug-${TOPIC}.md` instead. Same form
 Update state and suggest next step.
 
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" state-md update \
+node "$DEVFLOW_BIN" state-md update \
   --last-activity "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Checkpoint (@references/shared-patterns.md#checkpoint):
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "debug" \
   --summary "Debug $TOPIC: $ROOT_CAUSE"
 ```

@@ -8,7 +8,11 @@
 Load project configuration and parse arguments.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init code)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init code)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$ARGUMENTS" | awk '{print $1}')
 FLAG=$(echo "$ARGUMENTS" | grep -oE '\-\-(spec|plan|exec|review|status|quick)' | head -1)
@@ -22,7 +26,7 @@ Gate: `FEATURE` must be non-empty. If missing, check `defaults.active_feature` f
 Classify task complexity to determine pipeline depth.
 
 ```bash
-SIZE_RESULT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" classify "$DESCRIPTION")
+SIZE_RESULT=$(node "$DEVFLOW_BIN" classify "$DESCRIPTION")
 SIZE=$(echo "$SIZE_RESULT" | jq -r '.size')
 PIPELINE=$(echo "$SIZE_RESULT" | jq -r '.pipeline | join(" → ")')
 ```
@@ -40,7 +44,7 @@ Pipeline: $PIPELINE
 | `medium` | spec → plan → exec → review | Cross-file changes (default) |
 | `large` | discuss → spec → plan → exec → review | Cross-repo, architecture changes |
 
-- If `quick`: delegate to @~/.claude/my-dev/workflows/quick.md with the description
+- If `quick`: delegate to @./quick.md with the description
 - If `small`: skip spec, go directly to `--plan`
 - If `medium`: proceed to AUTO_DETECT (standard flow)
 - If `large`: check if `context.md` exists (discuss output); if not, suggest `--discuss` first
@@ -53,10 +57,10 @@ Route to the appropriate sub-workflow based on the flag.
 
 | Flag | Action |
 |------|--------|
-| `--spec` | Delegate to @~/.claude/my-dev/workflows/code-spec.md |
-| `--plan` | Delegate to @~/.claude/my-dev/workflows/code-plan.md |
-| `--exec` | Delegate to @~/.claude/my-dev/workflows/code-exec.md |
-| `--review` | Delegate to @~/.claude/my-dev/workflows/code-review.md |
+| `--spec` | Delegate to @./code-spec.md |
+| `--plan` | Delegate to @./code-plan.md |
+| `--exec` | Delegate to @./code-exec.md |
+| `--review` | Delegate to @./code-review.md |
 | `--status` | Show feature pipeline status (see STATUS step below) |
 | No flag | Auto-detect from existing artifacts (see AUTO_DETECT step below) |
 </step>

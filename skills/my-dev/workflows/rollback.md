@@ -8,7 +8,11 @@
 Load configuration and determine rollback target.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init rollback)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init rollback)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 CURRENT_TAG=$(echo "$INIT" | jq -r '.feature.current_tag')
 TARGET_TAG="$1"  # Optional: specific tag to roll back to
@@ -94,7 +98,7 @@ Update `.dev.yaml`:
 
 Checkpoint (@references/shared-patterns.md#checkpoint):
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "rollback" \
   --summary "Rollback: $CURRENT_TAG -> $TARGET_TAG on $CLUSTER_NAME/$NAMESPACE"
 ```

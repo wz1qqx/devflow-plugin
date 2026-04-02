@@ -15,7 +15,7 @@ Deploy the current image tag to a K8s cluster with namespace safety and pod read
 </objective>
 
 <execution_context>
-@~/.claude/my-dev/workflows/deploy.md
+@../../skills/my-dev/workflows/deploy.md
 </execution_context>
 
 <context>
@@ -23,6 +23,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the deploy workflow from @~/.claude/my-dev/workflows/deploy.md end-to-end.
-Load project config via: `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init deploy`
+Execute the deploy workflow from @../../skills/my-dev/workflows/deploy.md end-to-end.
+Load project config via: `node "$DEVFLOW_BIN" init deploy`
 </process>

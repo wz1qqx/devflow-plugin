@@ -8,7 +8,11 @@
 Initialize workflow and validate prerequisites.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init code-review)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init code-review)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 PROJECT=$(echo "$INIT" | jq -r '.feature.name')
 FEATURE="$1"
@@ -38,7 +42,7 @@ Aggregate into a review package:
 Spawn the reviewer agent with full diff context.
 
 Spawn agent: my-dev-reviewer
-Model: resolved via `node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" resolve-model my-dev-reviewer`
+Model: resolved via `node "$DEVFLOW_BIN" resolve-model my-dev-reviewer`
 Prompt:
 <agent_prompt>
 You are reviewing code changes for feature "$FEATURE" in project "$PROJECT".
@@ -172,7 +176,7 @@ State update (@references/shared-patterns.md#state-update): stage=`review`
 
 Checkpoint (@references/shared-patterns.md#checkpoint):
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "code-review" \
   --summary "Review $VERDICT for $FEATURE: $CRITICAL_COUNT critical, $HIGH_COUNT high"
 ```

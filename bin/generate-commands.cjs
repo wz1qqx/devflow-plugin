@@ -46,15 +46,15 @@ function generateCommandMd(name, cmd) {
     : '$ARGUMENTS';
 
   const executionContext = cmd.workflow
-    ? `@~/.claude/my-dev/workflows/${workflowName}`
+    ? `@../../skills/my-dev/workflows/${workflowName}`
     : (cmd.references ? cmd.references[0] : '');
 
   const processLines = [];
   if (cmd.workflow) {
-    processLines.push(`Execute the ${name} workflow from @~/.claude/my-dev/workflows/${workflowName} end-to-end.`);
-    processLines.push(`Load project config via: \`node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init ${initAs}\``);
+    processLines.push(`Execute the ${name} workflow from @../../skills/my-dev/workflows/${workflowName} end-to-end.`);
+    processLines.push(`Load project config via: \`node "$DEVFLOW_BIN" init ${initAs}\``);
   } else {
-    processLines.push(`Load project config via: \`node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init ${initAs}\``);
+    processLines.push(`Load project config via: \`node "$DEVFLOW_BIN" init ${initAs}\``);
     processLines.push(`Execute inline based on arguments.`);
   }
 

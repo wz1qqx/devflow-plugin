@@ -15,7 +15,11 @@ Read all state signals (.dev.yaml phase, STATE.md position, .dev/features/ artif
 Load project state.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init next)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init next)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 PROJECT_NAME=$(echo "$INIT" | jq -r '.feature.name')
 PHASE=$(echo "$INIT" | jq -r '.feature.phase')

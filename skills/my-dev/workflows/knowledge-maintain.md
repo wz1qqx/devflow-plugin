@@ -4,8 +4,8 @@
 <core_principle>Knowledge notes should contain ONLY non-derivable insights. Everything that can be obtained by reading current code should be pruned. Notes <=200 lines. Index must accurately reflect state.</core_principle>
 
 <references>
-@~/.claude/my-dev/references/memory-system.md
-@~/.claude/my-dev/references/knowledge-conventions.md
+@../references/memory-system.md
+@../references/knowledge-conventions.md
 </references>
 
 <process>
@@ -14,7 +14,11 @@
 Load workspace configuration and collect all Tier 2 notes.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init knowledge-maintain)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init knowledge-maintain)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 VAULT=$(echo "$INIT" | jq -r '.vault // empty')
 DEVLOG_GROUP=$(echo "$INIT" | jq -r '.devlog.group // empty')

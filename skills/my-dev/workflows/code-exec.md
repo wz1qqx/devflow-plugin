@@ -8,7 +8,11 @@
 Initialize workflow context and validate prerequisites.
 
 ```bash
-INIT=$(node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" init code-exec)
+# Auto-discover devflow CLI (marketplace or local install)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN="${DEVFLOW_BIN:-$HOME/.claude/my-dev/bin/my-dev-tools.cjs}"
+
+INIT=$(node "$DEVFLOW_BIN" init code-exec)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 PROJECT=$(echo "$INIT" | jq -r '.feature.name')
 FEATURE="$1"
@@ -210,7 +214,7 @@ Options:
 
 Checkpoint (@references/shared-patterns.md#checkpoint):
 ```bash
-node "$HOME/.claude/my-dev/bin/my-dev-tools.cjs" checkpoint \
+node "$DEVFLOW_BIN" checkpoint \
   --action "code-exec" \
   --summary "Executed $DONE/$TOTAL tasks for $FEATURE"
 ```
