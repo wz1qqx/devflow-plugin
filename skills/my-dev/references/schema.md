@@ -34,6 +34,8 @@ clusters:
       gpu: <string>
       rdma: <string>
       nvlink: <string>
+      min_driver: <string>            # Minimum NVIDIA driver version (optional, e.g. "535.0")
+      expected_tp: <int>              # Expected tensor_parallel_size for GPU free-count check (optional, default 1)
 
 # ═══════════════════════════════════════
 # REPO 定义 (workspace 级，所有 feature 共享)
@@ -118,6 +120,11 @@ features:
       dgd_name: <string>
       resource_kind: <string>
       strategy: <string>            # delete-then-apply | apply
+      model_path: <path>            # Model weights path on cluster (optional, for GPU_ENVIRONMENT_CHECK)
+      model_name: <string>          # Model name for API calls (optional, for WAIT_FOR_READY first-request)
+      service_url: <string>         # vLLM service URL after deploy (optional, e.g. "10.0.0.5:8000")
+      validation_tests: <string>    # Quick test paths for CODE_VALIDATION (optional, space-separated)
+      validation_tests_gate: <bool> # If true, test failure aborts deploy (default false)
 
     benchmark:
       bench_node: cluster | dedicated
@@ -147,6 +154,21 @@ features:
         baseline: <string|path>      # Baseline file path for comparison
         threshold: <float>           # Deviation threshold percentage
         output_dir: <string>         # Results directory (default: bench-results)
+      profile:                         # --profile mode configuration
+        trace_dir: <path>              # Remote dir for trace output (default: /tmp/vllm_profile_{tag})
+        num_prompts: <int>             # Workload size for profiling (default: 10)
+        request_rate: <float>          # Request rate during profiling (default: 4)
+        input_len: <int>               # Synthetic input length (default: 128)
+        output_len: <int>              # Synthetic output length (default: 64)
+        analyzers:                     # Extensible analysis scripts (optional)
+          - name: <string>             # Analyzer name
+            command: <string>          # Command template with {trace} and {output_dir} placeholders
+      kernel:                          # --kernel mode configuration (nsight)
+        batch_size: <int>              # Batch size for latency profiling (default: 1)
+        input_len: <int>               # Input sequence length (default: 128)
+        output_len: <int>              # Output sequence length (default: 32)
+        num_iters: <int>               # Benchmark iterations (default: 3)
+        nsys_path: <path>              # Override nsys binary path (optional, auto-detected)
 
     build_history:
       - tag: <string>

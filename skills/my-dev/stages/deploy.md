@@ -43,6 +43,67 @@ If NOT specific (missing cluster, tag, or feature context):
 If `$ARGUMENTS` contains `--force`, skip this gate.
 </step>
 
+<step name="GPU_ENVIRONMENT_CHECK">
+Remote GPU and environment pre-check before deploying vLLM workload.
+Skip this step if `$ARGUMENTS` contains `--skip-gpu-check`, or if the cluster
+has `hardware.gpu: none` in .dev.yaml.
+
+```bash
+GPU_TYPE=$(echo "$INIT" | jq -r '.cluster.hardware.gpu // empty')
+```
+If `$GPU_TYPE` is empty or "none", skip this step silently.
+
+1. **GPU Hardware Status**:
+```bash
+GPU_STATUS=$($SSH "nvidia-smi --query-gpu=index,name,memory.used,memory.total,temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>/dev/null")
+```
+If nvidia-smi fails entirely, ABORT: "CUDA driver not responding on target node."
+Parse each GPU line:
+- If any GPU temperature >85C: WARN (thermal throttling risk)
+- If any GPU memory usage >90%: WARN (another workload may be running)
+
+2. **Free GPU Count**:
+```bash
+EXPECTED_TP=$(echo "$INIT" | jq -r '.cluster.hardware.expected_tp // 1')
+FREE_GPUS=$(echo "$GPU_STATUS" | awk -F',' '{gsub(/ /,"",$3); if ($3+0 < 1000) print $1}' | wc -l | tr -d ' ')
+```
+If free GPUs < `expected_tp`, ABORT: "Need $EXPECTED_TP free GPUs but only $FREE_GPUS available."
+
+3. **Stale vLLM Process Detection**:
+```bash
+STALE=$($SSH "pgrep -af 'vllm serve|vllm.entrypoints' 2>/dev/null | grep -v pgrep || true")
+```
+If stale processes found (non-empty after filtering), WARN and list PIDs. Offer cleanup before deploy.
+
+4. **Model Weight Path** (optional):
+```bash
+MODEL_PATH=$(echo "$DEPLOY_CONFIG" | jq -r '.model_path // empty')
+if [ -n "$MODEL_PATH" ]; then
+  $SSH "test -d '$MODEL_PATH' && echo 'exists' || echo 'missing'"
+fi
+```
+If configured and missing, WARN: "Model path $MODEL_PATH not found on target."
+
+5. **CUDA Driver Version** (optional):
+```bash
+MIN_DRIVER=$(echo "$INIT" | jq -r '.cluster.hardware.min_driver // empty')
+if [ -n "$MIN_DRIVER" ]; then
+  DRIVER=$($SSH "nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1")
+fi
+```
+If driver version < min_driver, WARN.
+
+Report:
+```
+GPU Environment: $CLUSTER_NAME
+  GPUs: $TOTAL total, $FREE_GPUS free | Driver: $DRIVER | Max temp: ${MAX_TEMP}°C
+  Model cache: ${MODEL_PATH:-N/A}
+  Status: READY / WARN / ABORT
+```
+
+Gate: ABORT-level issues stop deploy. WARN-level issues display and continue.
+</step>
+
 <step name="COLLISION_CHECK">
 Check if another feature is already deployed to the same cluster/namespace.
 
@@ -69,6 +130,67 @@ For `safety: prod` clusters, require explicit confirmation even without collisio
 
 Gate: `current_tag` must exist (build completed). If not, abort: "No built image. Run `/devflow build` first."
 Gate: `active_cluster` must be set. If not, abort: "No cluster configured. Run `/devflow cluster use <name>`."
+</step>
+
+<step name="CODE_VALIDATION">
+Pre-deploy code-level validation. Ensures the code is importable and passes
+basic sanity before deploying. Skip if `$ARGUMENTS` contains `--skip-code-validation`
+or `--force`.
+
+```bash
+BUILD_SSH=$(echo "$INIT" | jq -r '.build_server.ssh // empty')
+BUILD_DIR=$(echo "$INIT" | jq -r '.build_server.work_dir // empty')
+```
+If `BUILD_SSH` or `BUILD_DIR` is empty, skip this step silently (no build server configured).
+
+1. **Compile Check** (Python syntax):
+```bash
+echo "Code validation: compile check..."
+COMPILE_RESULT=$($BUILD_SSH "cd $BUILD_DIR && python3 -m compileall -q vllm/ 2>&1")
+COMPILE_EXIT=$?
+```
+If exit code != 0, ABORT with the syntax error output.
+
+2. **Import Smoke Check**:
+```bash
+echo "Code validation: import check..."
+IMPORT_RESULT=$($BUILD_SSH "cd $BUILD_DIR && python3 -c '
+import vllm
+from vllm import LLM, SamplingParams
+from vllm.config import VllmConfig
+print(\"vllm_version:\", vllm.__version__)
+' 2>&1")
+IMPORT_EXIT=$?
+```
+If exit code != 0, ABORT with the import error.
+
+3. **Targeted Tests** (optional, from config):
+```bash
+VALIDATION_TESTS=$(echo "$DEPLOY_CONFIG" | jq -r '.validation_tests // empty')
+VALIDATION_GATE=$(echo "$DEPLOY_CONFIG" | jq -r '.validation_tests_gate // false')
+if [ -n "$VALIDATION_TESTS" ]; then
+  echo "Code validation: targeted tests..."
+  TEST_RESULT=$($BUILD_SSH "cd $BUILD_DIR && python3 -m pytest $VALIDATION_TESTS -x -q --timeout=60 2>&1")
+  TEST_EXIT=$?
+  if [ $TEST_EXIT -ne 0 ]; then
+    if [ "$VALIDATION_GATE" == "true" ]; then
+      ABORT with test output
+    else
+      WARN: "Targeted tests failed (non-blocking):" + test output
+    fi
+  fi
+fi
+```
+
+Report:
+```
+Code Validation:
+  Compile check: PASS
+  Import check: PASS (vllm X.Y.Z)
+  Targeted tests: PASS / WARN / SKIP
+```
+
+Gate: compileall + import must pass. Targeted tests configurable.
 </step>
 
 <step name="PRE_DEPLOY_HOOKS">
@@ -215,6 +337,57 @@ done
 ```
 
 Gate: If pods not ready after timeout, warn but don't fail (user may want to investigate).
+
+After pods are ready, perform application-level readiness checks:
+
+4. **Model-Loaded Health Check**:
+```bash
+SVC_URL=$(echo "$DEPLOY_CONFIG" | jq -r '.service_url // empty')
+MODEL_NAME=$(echo "$DEPLOY_CONFIG" | jq -r '.model_name // empty')
+if [ -n "$SVC_URL" ]; then
+  echo "Waiting for vLLM model to load..."
+  HEALTH_START=$(date +%s)
+  HEALTH_TIMEOUT=600
+  HEALTH_ELAPSED=0
+  while [ $HEALTH_ELAPSED -lt $HEALTH_TIMEOUT ]; do
+    HEALTH_CODE=$($SSH "curl -s -o /dev/null -w '%{http_code}' http://$SVC_URL/health 2>/dev/null" || echo "000")
+    if [ "$HEALTH_CODE" = "200" ]; then
+      HEALTH_TIME=$(( $(date +%s) - HEALTH_START ))
+      echo "vLLM health endpoint: OK (model loaded in ${HEALTH_TIME}s)"
+      break
+    fi
+    sleep 10
+    HEALTH_ELAPSED=$(( $(date +%s) - HEALTH_START ))
+  done
+  if [ $HEALTH_ELAPSED -ge $HEALTH_TIMEOUT ]; then
+    echo "[WARN] vLLM /health did not respond after ${HEALTH_TIMEOUT}s"
+    echo "Model may still be loading. Check logs: kubectl logs <pod> -n $NAMESPACE"
+  fi
+fi
+```
+vLLM model loading can take several minutes after the container starts.
+The /health endpoint only returns 200 after the engine is ready.
+
+5. **First-Request Validation**:
+```bash
+if [ -n "$SVC_URL" ] && [ -n "$MODEL_NAME" ]; then
+  echo "Sending first validation request..."
+  FIRST_START=$(date +%s%3N)
+  FIRST_REQ=$($SSH "curl -sf http://$SVC_URL/v1/completions \
+    -H 'Content-Type: application/json' \
+    -d '{\"model\": \"$MODEL_NAME\", \"prompt\": \"Hello\", \"max_tokens\": 5, \"temperature\": 0}' 2>&1" || true)
+  FIRST_END=$(date +%s%3N)
+  FIRST_LATENCY=$((FIRST_END - FIRST_START))
+  if echo "$FIRST_REQ" | jq -e '.choices[0].text' > /dev/null 2>&1; then
+    echo "First request: OK (${FIRST_LATENCY}ms)"
+  else
+    echo "[WARN] First request failed or returned unexpected response"
+    echo "Response: $FIRST_REQ"
+  fi
+fi
+```
+Verify the model can actually generate output. Catches OOM on first
+forward pass, missing tokenizer, or configuration errors.
 </step>
 
 <step name="UPDATE_STATE">
@@ -236,6 +409,8 @@ Output:
 Deploy complete: $CURRENT_TAG -> $CLUSTER_NAME/$NAMESPACE
 Strategy: $STRATEGY
 Pods: $RUNNING/$TOTAL ready
+Model loaded: ${HEALTH_TIME:-N/A}s
+First request: ${FIRST_LATENCY:-N/A}ms
 
 Next: /devflow verify --smoke
 ```
