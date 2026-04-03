@@ -2,8 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 const { output, error, findWorkspaceRoot, expandHome } = require('./core.cjs');
+const yaml = require('./yaml.cjs');
 
 function loadConfig(workspaceRoot) {
   const root = workspaceRoot || findWorkspaceRoot();
@@ -19,11 +19,7 @@ function loadConfig(workspaceRoot) {
     error('.dev.yaml is empty. Run /devflow:init workspace to initialize it.');
   }
   try {
-    const jsonStr = execSync(
-      `python3 -c "import yaml,json,sys; print(json.dumps(yaml.safe_load(sys.stdin)))"`,
-      { input: yamlContent, encoding: 'utf8', timeout: 10000 }
-    ).trim();
-    const raw = JSON.parse(jsonStr);
+    const raw = yaml.parse(yamlContent);
     if (!raw || typeof raw !== 'object') {
       error('.dev.yaml is empty or invalid. Run /devflow:init workspace to initialize it.');
     }

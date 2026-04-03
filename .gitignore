@@ -15,3 +15,6 @@ Thumbs.db
 # Working state (per-workspace, not part of plugin)
 .dev/
 .dev.yaml
+
+# Local settings (machine-specific)
+.claude/settings.local.json

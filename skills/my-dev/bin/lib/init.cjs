@@ -2,11 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, exec } = require('child_process');
+const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 const { output, error, findWorkspaceRoot, expandHome } = require('./core.cjs');
-const { loadConfig, getActiveFeatureWithRepos, getActiveFeature, getActiveCluster, getFeatureRepos, listFeatures } = require('./config.cjs');
+const { loadConfig, getActiveFeatureWithRepos, getActiveCluster, getFeatureRepos, listFeatures } = require('./config.cjs');
 const { loadState, getPhase } = require('./state.cjs');
 const { loadStateMd, readHandoff } = require('./session.cjs');
 const { parseArgs } = require('./core.cjs');
@@ -39,15 +39,42 @@ async function initWorkflow(workflowName, args) {
     return initFeature(config, root, args);
   }
 
+  // --- Workflow data requirements ---
+  // Each flag indicates a data source the workflow needs.
+  // Only flagged sources are loaded, avoiding unnecessary I/O.
+  const workflowNeeds = {
+    'code':        { featureState: true },
+    'code-spec':   { memory: true, knowledge: true, featureState: true },
+    'code-plan':   { memory: true, knowledge: true, featureState: true, buildHistory: true, devlog: true },
+    'code-exec':   { memory: true, featureState: true },
+    'code-review': { memory: true, featureState: true },
+    'build':       { buildHistory: true, buildConfig: true },
+    'deploy':      { cluster: true, allClusters: true, deployConfig: true },
+    'verify':      { cluster: true, buildHistory: true, benchmarkConfig: true },
+    'rollback':    { cluster: true, allClusters: true, deployConfig: true, fullBuildHistory: true, buildServer: true },
+    'observe':     { cluster: true, observability: true },
+    'debug':       { memory: true, cluster: true, knowledge: true, buildHistory: true, devlog: true },
+    'diff':        { gitStatus: false },
+    'status':      { cluster: true, featureState: true, buildHistory: true },
+    'clean':       { cluster: true, allFeatures: true, buildServer: true, gitStatus: false },
+    'cluster':     { cluster: true, rawClusters: true, gitStatus: false },
+    'log':         { devlog: true, gitStatus: false },
+    'resume':      { memory: true, cluster: true, knowledge: true, buildHistory: true, artifacts: true, featureState: true },
+    'pause':       { memory: true, knowledge: true, artifacts: true, devlog: true },
+    'learn':       { memory: true, knowledge: true, featureState: true, devlog: true, workspaceRepos: true },
+    'quick':       { memory: true, knowledge: true, featureState: true, buildHistory: true },
+    'next':        { memory: true, cluster: true, featureState: true, buildHistory: true, artifacts: true },
+  };
+
+  const needs = workflowNeeds[workflowName] || { all: true };
+  const needsAll = needs.all === true;
+  const skipGit = needs.gitStatus === false && !needsAll;
+
   const featureWithRepos = getActiveFeatureWithRepos(config, featureOverride);
-  const activeFeature = getActiveFeature(config, featureOverride);
-  const cluster = getActiveCluster(config);
-  const state = loadState(featureWithRepos.name);
   const phase = getPhase(config, featureWithRepos.name);
   const workspace = expandHome(config.workspace) || root;
   const vault = expandHome(config.vault) || null;
 
-  // Tuning: merge defaults with user overrides from .dev.yaml
   const defaultTuning = {
     regression_threshold: 20,
     max_task_retries: 2,
@@ -58,44 +85,11 @@ async function initWorkflow(workflowName, args) {
   };
   const tuning = { ...defaultTuning, ...((config.defaults && config.defaults.tuning) || {}) };
 
-  const repos = await buildReposContextAsync(featureWithRepos, workspace);
-  const hooks = featureWithRepos.hooks || {};
+  const repos = await buildReposContextAsync(featureWithRepos, workspace, { skipGit });
   const invariants = featureWithRepos.invariants || {};
-  const buildHistory = (featureWithRepos.build_history || []).slice(-tuning.build_history_limit);
-  const knowledgeNotes = collectKnowledgeNotes(vault, config);
+  const hooks = featureWithRepos.hooks || {};
 
-  const stateMd = loadStateMd(root, featureWithRepos.name);
-  const decisions = stateMd ? stateMd.decisions : [];
-  const blockers = stateMd ? stateMd.blockers.filter(b => b.status === 'active') : [];
-  const handoff = readHandoff(root, featureWithRepos.name);
-
-  const featureName = featureWithRepos.name
-    || parsed._[0]
-    || (stateMd && stateMd.frontmatter.current_feature !== 'null' ? stateMd.frontmatter.current_feature : null)
-    || (handoff && handoff.feature ? handoff.feature : null)
-    || null;
-
-  let featureContext = null;
-  const devDir = path.join(root, '.dev');
-  if (featureName) {
-    const contextPath = path.join(devDir, 'features', featureName, 'context.md');
-    if (fs.existsSync(contextPath)) {
-      try { featureContext = fs.readFileSync(contextPath, 'utf8'); } catch (_) { /* ignore */ }
-    }
-  }
-
-  const experienceNotes = collectExperienceNotes(vault, config, featureName);
-  const featureState = buildFeatureState(featureName, devDir);
-
-  // Cluster context (reused across workflows)
-  const clusterCtx = cluster ? {
-    name: cluster.name,
-    ssh: cluster.ssh,
-    namespace: cluster.namespace,
-    safety: cluster.safety || 'normal',
-  } : null;
-
-  // Base context — shared by ALL workflows (renamed: project → feature)
+  // Base context — shared by ALL workflows
   const base = {
     feature: {
       name: featureWithRepos.name,
@@ -113,7 +107,49 @@ async function initWorkflow(workflowName, args) {
     config_path: config._path,
   };
 
-  // Memory context
+  // --- Lazy-loaded data sources (only computed when needed) ---
+  const featureName = featureWithRepos.name || parsed._[0] || null;
+  const devDir = path.join(root, '.dev');
+
+  const knowledgeNotes = (needsAll || needs.knowledge)
+    ? collectKnowledgeNotes(vault, config) : [];
+
+  let stateMd = null;
+  let decisions = [];
+  let blockers = [];
+  let handoff = null;
+  let featureContext = null;
+  let experienceNotes = [];
+  if (needsAll || needs.memory) {
+    stateMd = loadStateMd(root, featureWithRepos.name);
+    decisions = stateMd ? stateMd.decisions : [];
+    blockers = stateMd ? stateMd.blockers.filter(b => b.status === 'active') : [];
+    handoff = readHandoff(root, featureWithRepos.name);
+    if (featureName) {
+      const contextPath = path.join(devDir, 'features', featureName, 'context.md');
+      if (fs.existsSync(contextPath)) {
+        try { featureContext = fs.readFileSync(contextPath, 'utf8'); } catch (_) { /* ignore */ }
+      }
+    }
+    experienceNotes = collectExperienceNotes(vault, config, featureName);
+  }
+
+  const featureState = (needsAll || needs.featureState)
+    ? buildFeatureState(featureName, devDir) : {};
+
+  const buildHistory = (needsAll || needs.buildHistory)
+    ? (featureWithRepos.build_history || []).slice(-tuning.build_history_limit) : [];
+
+  const cluster = (needsAll || needs.cluster) ? getActiveCluster(config) : null;
+  const clusterCtx = cluster ? {
+    name: cluster.name,
+    ssh: cluster.ssh,
+    namespace: cluster.namespace,
+    safety: cluster.safety || 'normal',
+  } : null;
+
+  const state = (needsAll || needs.artifacts) ? loadState(featureWithRepos.name) : null;
+
   const memoryContext = {
     state: stateMd ? stateMd.frontmatter : null,
     decisions,
@@ -123,144 +159,33 @@ async function initWorkflow(workflowName, args) {
     experience_notes: experienceNotes,
   };
 
-  // Workflow-specific context — each workflow gets exactly what it needs
+  // --- Build workflow-specific output ---
   const workflowContextMap = {
-    'code': {
-      ...base,
-      feature_state: featureState,
-    },
-    'code-spec': {
-      ...base,
-      ...memoryContext,
-      knowledge_notes: knowledgeNotes,
-      feature_state: featureState,
-    },
-    'code-plan': {
-      ...base,
-      ...memoryContext,
-      knowledge_notes: knowledgeNotes,
-      feature_state: featureState,
-      build_history: buildHistory,
-      devlog: config.devlog || {},
-    },
-    'code-exec': {
-      ...base,
-      ...memoryContext,
-      feature_state: featureState,
-    },
-    'code-review': {
-      ...base,
-      ...memoryContext,
-      feature_state: featureState,
-    },
-    'build': {
-      ...base,
-      build_history: buildHistory,
-      build: featureWithRepos.build || {},
-      build_server: config.build_server || null,
-    },
-    'deploy': {
-      ...base,
-      cluster: clusterCtx,
-      all_clusters: buildClusterSummary(config),
-      deploy: featureWithRepos.deploy || {},
-    },
-    'verify': {
-      ...base,
-      cluster: clusterCtx,
-      benchmark: featureWithRepos.benchmark || {},
-      verify: featureWithRepos.verify || {},
-      build_history: buildHistory,
-    },
-    'rollback': {
-      ...base,
-      cluster: clusterCtx,
-      all_clusters: buildClusterSummary(config),
-      deploy: featureWithRepos.deploy || {},
-      build_history: (featureWithRepos.build_history || []),
-      build_server: config.build_server || null,
-    },
-    'observe': {
-      ...base,
-      cluster: clusterCtx,
-      observability: config.observability || {},
-    },
-    'debug': {
-      ...base,
-      ...memoryContext,
-      cluster: clusterCtx,
-      knowledge_notes: knowledgeNotes,
-      build_history: buildHistory,
-      devlog: config.devlog || {},
-    },
-    'diff': {
-      ...base,
-    },
-    'status': {
-      ...base,
-      cluster: clusterCtx,
-      feature_state: featureState,
-      build_history: buildHistory,
-    },
-    'clean': {
-      ...base,
-      cluster: clusterCtx,
-      all_features: buildAllFeaturesContext(config, workspace),
-      build_server: config.build_server || null,
-    },
-    'cluster': {
-      ...base,
-      cluster: clusterCtx,
-      all_clusters: config.clusters || {},
-    },
-    'log': {
-      ...base,
-      devlog: config.devlog || {},
-    },
-    'resume': {
-      ...base,
-      ...memoryContext,
-      cluster: clusterCtx,
-      knowledge_notes: knowledgeNotes,
-      build_history: buildHistory,
-      artifacts: state,
-      feature_state: featureState,
-    },
-    'pause': {
-      ...base,
-      ...memoryContext,
-      knowledge_notes: knowledgeNotes,
-      artifacts: state,
-      devlog: config.devlog || {},
-    },
-    'learn': {
-      ...base,
-      ...memoryContext,
-      knowledge_notes: knowledgeNotes,
-      feature_state: featureState,
-      devlog: config.devlog || {},
-      workspace_repos: config.repos || {},
-    },
-    'quick': {
-      ...base,
-      ...memoryContext,
-      knowledge_notes: knowledgeNotes,
-      feature_state: featureState,
-      build_history: buildHistory,
-    },
-    'next': {
-      ...base,
-      ...memoryContext,
-      cluster: clusterCtx,
-      feature_state: featureState,
-      build_history: buildHistory,
-      artifacts: state,
-    },
+    'code':        { ...base, feature_state: featureState },
+    'code-spec':   { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'code-plan':   { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, build_history: buildHistory, devlog: config.devlog || {} },
+    'code-exec':   { ...base, ...memoryContext, feature_state: featureState },
+    'code-review': { ...base, ...memoryContext, feature_state: featureState },
+    'build':       { ...base, build_history: buildHistory, build: featureWithRepos.build || {}, build_server: config.build_server || null },
+    'deploy':      { ...base, cluster: clusterCtx, all_clusters: buildClusterSummary(config), deploy: featureWithRepos.deploy || {} },
+    'verify':      { ...base, cluster: clusterCtx, benchmark: featureWithRepos.benchmark || {}, verify: featureWithRepos.verify || {}, build_history: buildHistory },
+    'rollback':    { ...base, cluster: clusterCtx, all_clusters: buildClusterSummary(config), deploy: featureWithRepos.deploy || {}, build_history: (featureWithRepos.build_history || []), build_server: config.build_server || null },
+    'observe':     { ...base, cluster: clusterCtx, observability: config.observability || {} },
+    'debug':       { ...base, ...memoryContext, cluster: clusterCtx, knowledge_notes: knowledgeNotes, build_history: buildHistory, devlog: config.devlog || {} },
+    'diff':        { ...base },
+    'status':      { ...base, cluster: clusterCtx, feature_state: featureState, build_history: buildHistory },
+    'clean':       { ...base, cluster: clusterCtx, all_features: buildAllFeaturesContext(config, workspace), build_server: config.build_server || null },
+    'cluster':     { ...base, cluster: clusterCtx, all_clusters: config.clusters || {} },
+    'log':         { ...base, devlog: config.devlog || {} },
+    'resume':      { ...base, ...memoryContext, cluster: clusterCtx, knowledge_notes: knowledgeNotes, build_history: buildHistory, artifacts: state, feature_state: featureState },
+    'pause':       { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, artifacts: state, devlog: config.devlog || {} },
+    'learn':       { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, devlog: config.devlog || {}, workspace_repos: config.repos || {} },
+    'quick':       { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, build_history: buildHistory },
+    'next':        { ...base, ...memoryContext, cluster: clusterCtx, feature_state: featureState, build_history: buildHistory, artifacts: state },
   };
 
   const context = workflowContextMap[workflowName];
   if (!context) {
-    // Unknown workflow: return full context
     output({
       ...base,
       ...memoryContext,
@@ -366,13 +291,13 @@ async function initFeature(config, root, args) {
 
 // --- Helper functions ---
 
-async function buildSingleRepoContextAsync(entry, workspace) {
+async function buildSingleRepoContextAsync(entry, workspace, { skipGit = false } = {}) {
   const devWorktree = entry.dev_worktree ? path.resolve(workspace, entry.dev_worktree) : null;
   const baseWorktree = entry.base_worktree ? path.resolve(workspace, entry.base_worktree) : null;
 
   let commitCount = 0;
   let hasUncommitted = false;
-  if (devWorktree && fs.existsSync(devWorktree)) {
+  if (!skipGit && devWorktree && fs.existsSync(devWorktree)) {
     const [logResult, statusResult] = await Promise.allSettled([
       execAsync(
         `git -C "${devWorktree}" log --oneline ${entry.base_ref || 'HEAD~10'}..HEAD 2>/dev/null | wc -l`,
@@ -401,13 +326,13 @@ async function buildSingleRepoContextAsync(entry, workspace) {
   };
 }
 
-async function buildReposContextAsync(featureWithRepos, workspace) {
+async function buildReposContextAsync(featureWithRepos, workspace, { skipGit = false } = {}) {
   const repos = {};
   if (featureWithRepos.repos) {
     const entries = Object.entries(featureWithRepos.repos);
     const results = await Promise.all(
       entries.map(([repoName, repo]) =>
-        buildSingleRepoContextAsync(repo, workspace).then(ctx => {
+        buildSingleRepoContextAsync(repo, workspace, { skipGit }).then(ctx => {
           if (repo.build_type) ctx.build_type = repo.build_type;
           return { repoName, ctx };
         })

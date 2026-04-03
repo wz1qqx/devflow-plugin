@@ -13,58 +13,29 @@ description: >
 
 4-layer architecture for full development lifecycle management.
 
-## Architecture
+## Commands
 
-```
-用户 → Command (.md) → Workflow (.md) → Agent (.md) + CLI Tools (.cjs)
-         入口层           编排层           执行层        状态层
-```
+Invoke via `/devflow:<action>` or `/devflow <action> [args]`.
 
-**Config**: `.dev.yaml` (workspace root, schema v2)
-**Schema**: [schema.md](./references/schema.md)
-**Vault**: Configured in `.dev.yaml` `vault` field (optional)
-
-### Workspace vs Feature 模型
-```
-Workspace (固定，一个 .dev.yaml)
-  ├── Repos: dynamo, vllm, pegaflow (共享 repo 集合 + baselines)
-  ├── Infra: build_server, clusters (共享基础设施)
-  │
-  ├── Feature A: decode-l2-cache  scope: [dynamo, vllm]    phase: dev
-  ├── Feature B: pegaflow-connector  scope: [全部]          phase: verify
-  ├── Feature C: scheduler-fix  scope: [vllm]              phase: completed
-  └── Feature D: nixl-perf  scope: [dynamo]                phase: spec
-```
-一个 workspace 下多个 feature 并存，各自独立的 dev_worktrees 和 phase。
-
-## Commands (Layer 1 — Entry Points)
-
-Each action has a dedicated command in the plugin's `commands/devflow/<action>.md`.
-Invoke via `/devflow:<action>` or parse from `$ARGUMENTS` when called as `/devflow <action>`.
-
-| Command | Description | Workflow |
-|---------|-------------|----------|
-| `/devflow:next` | Auto-detect state, suggest next step | [next.md](./workflows/next.md) |
-| `/devflow:quick` | Ad-hoc task with atomic commits (skip ceremony) | [quick.md](./workflows/quick.md) |
-| `/devflow:init` | `workspace`: 初始化 repo 集合 + 基础设施; `feature <name>`: 创建新 feature | [init.md](./workflows/init.md) / [init-feature.md](./workflows/init-feature.md) |
-| `/devflow:resume` | Restore session, show status, suggest next step | [resume.md](./workflows/resume.md) |
-| `/devflow:pause` | Save session state for later resume | [pause.md](./workflows/pause.md) |
-| `/devflow:discuss` | Lock decisions before planning (gray areas) | [discuss.md](./workflows/discuss.md) |
-| `/devflow:code` | Structured coding: auto-select pipeline depth | [code-*.md](./workflows/) |
-| `/devflow:build` | Build container image with incremental tag chain | [build.md](./workflows/build.md) |
-| `/devflow:deploy` | Deploy to K8s cluster | [deploy.md](./workflows/deploy.md) |
-| `/devflow:verify` | Post-deploy verification + benchmark + accuracy | [verify.md](./workflows/verify.md) |
-| `/devflow:observe` | Grafana dashboards, monitoring, metrics analysis | [observe.md](./workflows/observe.md) |
-| `/devflow:debug` | Investigation mode + learned hook evolution | [debug.md](./workflows/debug.md) |
-| `/devflow:diff` | Show dev_worktree vs base_ref changes | [info.md](./workflows/info.md) |
-| `/devflow:rollback` | Deploy rollback to previous tag | [rollback.md](./workflows/rollback.md) |
-| `/devflow:switch` | Switch active feature | workflow inline |
-| `/devflow:clean` | Clean up unused resources | [clean.md](./workflows/clean.md) |
-| `/devflow:log` | Quick checkpoint entry | workflow inline |
-| `/devflow:status` | Full project status overview | [info.md](./workflows/info.md) |
-| `/devflow:cluster` | Manage cluster profiles | workflow inline |
-| `/devflow:knowledge` | Knowledge base operations | [knowledge-maintain.md](./workflows/knowledge-maintain.md) |
-| `/devflow:learn` | Deep-dive learning (→ Obsidian knowledge) | [learn.md](./workflows/learn.md) |
+| Command | Description |
+|---------|-------------|
+| `next` | Auto-detect state, suggest next step |
+| `quick` | Ad-hoc task with atomic commits |
+| `init` | `workspace` or `feature <name>` |
+| `resume` / `pause` | Session save/restore |
+| `discuss` | Lock decisions before planning |
+| `code` | Structured coding (auto pipeline depth) |
+| `build` | Container image build |
+| `deploy` / `rollback` | K8s deploy / rollback |
+| `verify` | Post-deploy verification + benchmark |
+| `observe` | Grafana monitoring |
+| `debug` | Investigation mode |
+| `diff` / `status` | Show changes / project overview |
+| `switch` | Switch active feature |
+| `clean` | Cleanup resources |
+| `log` | Quick checkpoint |
+| `cluster` | Manage cluster profiles |
+| `knowledge` / `learn` | Knowledge base ops / deep-dive learning |
 
 ## Dispatch Rule
 
@@ -106,148 +77,9 @@ Build and deploy workflows check if the request is specific enough:
 - Specific requests (with file paths, tags, cluster names) → execute directly
 - `--force` bypasses the gate
 
-## Workflows (Layer 2 — Orchestration)
+## References
 
-Located at `./workflows/` (within the plugin). Orchestrators stay lean:
-- Load context via `my-dev-tools.cjs init <workflow>`
-- Spawn specialized agents with fresh context windows
-- Collect results and route to next step
-- Update state between steps
-
-### Code Sub-Workflows (core innovation)
-| Workflow | Purpose | Agents Used |
-|----------|---------|-------------|
-| `code-spec.md` | Generate feature specification | my-dev-researcher |
-| `code-plan.md` | Create implementation plan + verification loop | my-dev-planner, my-dev-plan-checker |
-| `code-exec.md` | Wave-based parallel execution + composable behaviors | my-dev-executor (per plan) |
-| `code-review.md` | Automated code review | my-dev-reviewer |
-
-## Agents (Layer 3 — Execution)
-
-Built-in agents at `./agents/` (within the plugin). Add custom agents to `.devflow/agents/` (project-local, higher priority).
-
-| Agent | Role | Tools | Model (balanced) |
-|-------|------|-------|-----------------|
-| `my-dev-researcher` | Code exploration, knowledge loading | Read, Bash, Grep, Glob, WebSearch | haiku |
-| `my-dev-planner` | Plan generation, wave analysis | Read, Write, Bash, Glob, Grep | opus |
-| `my-dev-plan-checker` | Plan verification (read-only) | Read, Bash, Glob, Grep | sonnet |
-| `my-dev-executor` | Code implementation, atomic commits | Read, Write, Edit, Bash, Grep, Glob | sonnet |
-| `my-dev-reviewer` | Code review (read-only) | Read, Bash, Grep, Glob | sonnet |
-| `my-dev-verifier` | Post-deploy system verification | Read, Write, Bash, Grep, Glob | sonnet |
-| `my-dev-debugger` | Investigation + hypothesis tracking | Read, Write, Edit, Bash, Grep, Glob, WebSearch | sonnet |
-
-Model routing controlled by `defaults.model_profile` (quality/balanced/budget). Per-agent override via `defaults.agent_models`.
-
-## CLI Tools (Layer 4 — State Management)
-
-Located at `./bin/my-dev-tools.cjs` (auto-discovered at runtime).
-
-```bash
-# Context loading (returns JSON with all workflow context)
-node "$DEVFLOW_BIN" init <workflow> [args]
-
-# Config operations
-node "$DEVFLOW_BIN" config load
-node "$DEVFLOW_BIN" config get <key>
-
-# State operations
-node "$DEVFLOW_BIN" state get [field]
-node "$DEVFLOW_BIN" state update <field> <value>
-
-# Model resolution (profile-driven: quality/balanced/budget)
-node "$DEVFLOW_BIN" resolve-model <agent-name>
-
-# Task complexity classification
-node "$DEVFLOW_BIN" classify <prompt>
-
-# Prompt specificity check
-node "$DEVFLOW_BIN" check-specificity <prompt>
-
-# Agent discovery (plugin + project .devflow/agents/)
-node "$DEVFLOW_BIN" agents list
-
-# Feature management
-node "$DEVFLOW_BIN" features list|active|switch
-
-# Template operations
-node "$DEVFLOW_BIN" template fill <type> [--vars]
-
-# Verification
-node "$DEVFLOW_BIN" verify plan-structure <file>
-node "$DEVFLOW_BIN" verify phase-completeness <feature>
-
-# Checkpoint
-node "$DEVFLOW_BIN" checkpoint --action <action> --summary <text>
-```
-
-## Memory System
-
-See [memory-system.md](./references/memory-system.md) for full specification.
-
-### Memory Architecture (4 layers)
-
-```
-Obsidian Vault (永久记忆 · 第二大脑) [OPTIONAL]
-  knowledge/    ← learn 产出 + review 沉淀
-  experience/   ← debug 经验提炼 + 踩坑教训
-  devlog/       ← checkpoint + investigation
-       ↑ 沉淀          ↓ 加载
-.dev/ (工作记忆 · session/feature 级)
-  STATE.md      ← position, decisions[], blockers[], metrics
-  HANDOFF.json  ← 会话交接 (pause → resume)
-  features/<feature>/
-    spec.md, context.md, plan.md, review.md, summary.md, devlog.md
-       ↑ 读取
-.dev.yaml (项目配置)  |  hooks/ (行为记忆)
-```
-
-**Canonical artifact paths** (all under `.dev/features/<feature>/`):
-- `spec.md` — feature specification
-- `context.md` — discuss decisions
-- `plan.md` — implementation plan with wave ordering
-- `review.md` — code review findings + verdict
-- `summary.md` — execution summary
-- `devlog.md` — feature devlog index
-
-### Knowledge Sink Rules
-- `learn` → Obsidian `knowledge/<feature>.md` (if vault configured)
-- `debug` resolution → Obsidian `experience/<topic>-patterns.md` + learned hook (if vault configured)
-- `code --review` patterns → Obsidian `knowledge/<pattern>.md` (if vault configured)
-- If no Obsidian vault configured, knowledge stays in `.dev/features/` only
-
-## Hooks
-
-| Hook | File | Event | Purpose |
-|------|------|-------|---------|
-| Context Monitor | `my-dev-context-monitor.js` | PostToolUse | Warn at 35%/25% remaining context |
-| Persistent Mode | `devflow-persistent.js` | Stop | Re-inject continuation when `--persistent` active |
-
-## Shared Resources
-
-| Path | Contents |
-|------|----------|
-| `./references/` (within the plugin) | schema.md, hooks.md, model-profiles.md, memory-system.md |
-| `./templates/` (within the plugin) | spec.md, plan.md, review.md, summary.md, state.md, context.md, experience.md |
-| `.dev.yaml` | Project config (workspace root) |
-| `.dev/` | Working memory: STATE.md, HANDOFF.json, features/ |
-| `.devflow/agents/` | Project-local custom agent definitions (optional) |
-| Obsidian vault | Permanent knowledge + experience + devlog (optional) |
-
-## Core Invariants
-
-- **source_restriction: dev_worktree_only** → NEVER copy from main repo
-- **build_compat_check** → patched files MUST be compatible with base_ref API
-- **BASE_IMAGE = current_tag** (incremental chain), NOT the official base image
-- **Namespace safety** → ALL kubectl commands include `-n <namespace>`
-- **Knowledge sink** → debug/review 中发现的知识沉淀到 Obsidian (if configured)
-
-## State Machine
-
-```
-init → learn → code(spec→discuss→plan→exec→review) → build → deploy → verify → observe → [debug] → code
-                  ↑                                                                ↓
-            Obsidian ←──────────────────── knowledge sink ←──────────────── experience sink
-```
+Architecture, agents, CLI tools, memory system, hooks → see `./references/`
 
 ## Parameters
 

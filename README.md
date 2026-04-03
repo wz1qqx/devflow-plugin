@@ -114,7 +114,6 @@ defaults:
 |------|-------|---------|
 | `my-dev-context-monitor` | PostToolUse | Warns at 35% / 25% context window remaining |
 | `devflow-persistent` | Stop | Auto-retry on failure when `--persistent` flag is active |
-| `my-dev-statusline` | — | Displays model, feature, phase, and context usage bar |
 
 ## Configuration
 
