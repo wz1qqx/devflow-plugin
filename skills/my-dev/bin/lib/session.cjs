@@ -136,12 +136,19 @@ function updateStateMd(root, updates, featureName) {
 
 function appendTableRow(statePath, sectionHeader, row) {
   let content = fs.readFileSync(statePath, 'utf8');
-  const pattern = new RegExp(`${sectionHeader}\\n\\|[^\\n]+\\n\\|[-| ]+\\n([\\s\\S]*?)(?=\\n## )`);
+  const pattern = new RegExp(`${sectionHeader}\\n\\|[^\\n]+\\n\\|[-| ]+\\n([\\s\\S]*?)(?=\\n## |$)`);
   const insertPoint = content.match(pattern);
   if (insertPoint) {
-    const tableEnd = content.indexOf(insertPoint[0]) + insertPoint[0].length;
-    const beforeNext = content.lastIndexOf('\n', content.indexOf('\n## ', tableEnd));
-    content = content.slice(0, beforeNext) + '\n' + row + content.slice(beforeNext);
+    const matchEnd = content.indexOf(insertPoint[0]) + insertPoint[0].length;
+    const nextSection = content.indexOf('\n## ', matchEnd);
+    if (nextSection !== -1) {
+      const beforeNext = content.lastIndexOf('\n', nextSection);
+      content = content.slice(0, beforeNext) + '\n' + row + content.slice(beforeNext);
+    } else {
+      // Section is at end of file — append row before trailing whitespace
+      const trimmed = content.trimEnd();
+      content = trimmed + '\n' + row + '\n';
+    }
   }
   fs.writeFileSync(statePath, content, 'utf8');
 }
@@ -177,7 +184,7 @@ function resolveBlocker(root, blockerId) {
   if (!fs.existsSync(statePath)) return { resolved: false, reason: 'STATE.md not found' };
 
   let content = fs.readFileSync(statePath, 'utf8');
-  const regex = new RegExp(`(\\| ${blockerId} \\|[^|]+\\|[^|]+\\|)\\s*active\\s*(\\|)`, 'g');
+  const regex = new RegExp(`(\\| ${blockerId} \\|[^|]+\\|[^|]+\\|)\\s*active\\s*(\\|)`);
   if (regex.test(content)) {
     content = content.replace(regex, '$1 resolved $2');
     fs.writeFileSync(statePath, content, 'utf8');

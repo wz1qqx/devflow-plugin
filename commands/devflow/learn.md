@@ -1,7 +1,7 @@
 ---
 name: devflow:learn
-description: Deep-dive learning - analyze feature and generate knowledge doc
-argument-hint: "<feature>"
+description: Research a topic (code, URL, or file) and create/update wiki pages
+argument-hint: "<topic|feature|URL|filepath>"
 allowed-tools:
   - Read
   - Write
@@ -9,14 +9,15 @@ allowed-tools:
   - Glob
   - Grep
   - WebSearch
+  - WebFetch
   - Agent
 ---
 <objective>
-Research a feature's codebase and generate dual-layer Obsidian knowledge documents.
+Research a topic from any source and build/update focused, interlinked wiki pages.
 </objective>
 
 <execution_context>
-@../../skills/my-dev/stages/learn.md
+@../../skills/my-dev/learn.md
 </execution_context>
 
 <context>
@@ -24,6 +25,15 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the learn stage from @../../skills/my-dev/stages/learn.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init learn`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init learn)
+```
+
+**Step 2**: Read the skill file and execute it end-to-end:
+```bash
+SKILL_FILE=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/learn.md 2>/dev/null | head -1)
+```
+Read `$SKILL_FILE` for the full process, then follow it step by step.
 </process>

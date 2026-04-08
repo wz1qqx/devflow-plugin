@@ -39,34 +39,46 @@ async function initWorkflow(workflowName, args) {
     return initFeature(config, root, args);
   }
 
-  // --- Workflow data requirements ---
+  // --- Workflow data requirements (v2 pipeline) ---
   // Each flag indicates a data source the workflow needs.
   // Only flagged sources are loaded, avoiding unnecessary I/O.
   const workflowNeeds = {
-    'code':        { featureState: true },
-    'code-spec':   { memory: true, knowledge: true, featureState: true },
-    'code-plan':   { memory: true, knowledge: true, featureState: true, buildHistory: true, devlog: true },
-    'code-exec':   { memory: true, featureState: true },
-    'code-review': { memory: true, featureState: true },
-    'build':       { buildHistory: true, buildConfig: true },
-    'deploy':      { cluster: true, allClusters: true, deployConfig: true, buildServer: true },
-    'verify':      { cluster: true, buildHistory: true, benchmarkConfig: true, deployConfig: true, buildServer: true },
-    'rollback':    { cluster: true, allClusters: true, deployConfig: true, fullBuildHistory: true, buildServer: true },
-    'observe':     { cluster: true, observability: true },
-    'debug':       { memory: true, cluster: true, knowledge: true, buildHistory: true, devlog: true },
-    'diff':        { gitStatus: false },
-    'status':      { cluster: true, featureState: true, buildHistory: true },
-    'clean':       { cluster: true, allFeatures: true, buildServer: true, gitStatus: false },
-    'cluster':     { cluster: true, rawClusters: true, gitStatus: false },
-    'log':         { devlog: true, gitStatus: false },
-    'resume':      { memory: true, cluster: true, knowledge: true, buildHistory: true, artifacts: true, featureState: true },
-    'pause':       { memory: true, knowledge: true, artifacts: true, devlog: true },
-    'learn':       { memory: true, knowledge: true, featureState: true, devlog: true, workspaceRepos: true },
-    'quick':       { memory: true, knowledge: true, featureState: true, buildHistory: true },
-    'next':        { memory: true, cluster: true, featureState: true, buildHistory: true, artifacts: true },
-    'discuss':     { memory: true, knowledge: true, featureState: true },
-    'knowledge':   { knowledge: true },
-    'switch':      { featureState: true, gitStatus: false },
+    // Pipeline stages
+    'spec':         { memory: true, knowledge: true, featureState: true },
+    'plan':         { memory: true, knowledge: true, featureState: true, buildHistory: true, devlog: true },
+    'code':         { memory: true, knowledge: true, featureState: true },
+    'test':         { featureState: true, cluster: true },
+    'review':       { memory: true, knowledge: true, featureState: true },
+    'ship':         { cluster: true, allClusters: true, buildHistory: true, buildConfig: true, deployConfig: true, buildServer: true, knowledge: true, devlog: true },
+    // Independent skills
+    'debug':        { memory: true, cluster: true, knowledge: true, buildHistory: true, devlog: true },
+    'vllm-opt':     { cluster: true, buildHistory: true, benchmarkConfig: true, knowledge: true, devlog: true },
+    'grafana-setup': { cluster: true, observability: true },
+    'learn':        { memory: true, knowledge: true, featureState: true, devlog: true, workspaceRepos: true },
+    'code-simplify': { memory: true, knowledge: true, featureState: true },
+    'quick':        { memory: true, knowledge: true, featureState: true, buildHistory: true },
+    // Session & utilities
+    'pause':        { memory: true, knowledge: true, artifacts: true, devlog: true },
+    'resume':       { memory: true, cluster: true, knowledge: true, buildHistory: true, artifacts: true, featureState: true },
+    'diff':         { gitStatus: false },
+    'status':       { cluster: true, featureState: true, buildHistory: true, knowledge: true },
+    'clean':        { cluster: true, allFeatures: true, buildServer: true, gitStatus: false },
+    'cluster':      { cluster: true, rawClusters: true, gitStatus: false },
+    'log':          { devlog: true, gitStatus: false },
+    'next':         { memory: true, cluster: true, featureState: true, buildHistory: true, artifacts: true, knowledge: true },
+    'knowledge':    { knowledge: true, workspaceRepos: true },
+    'switch':       { featureState: true, gitStatus: false },
+    // Legacy aliases (backward compat during migration)
+    'code-spec':    { memory: true, knowledge: true, featureState: true },
+    'code-plan':    { memory: true, knowledge: true, featureState: true, buildHistory: true, devlog: true },
+    'code-exec':    { memory: true, knowledge: true, featureState: true },
+    'code-review':  { memory: true, knowledge: true, featureState: true },
+    'build':        { buildHistory: true, buildConfig: true, knowledge: true, devlog: true },
+    'deploy':       { cluster: true, allClusters: true, deployConfig: true, buildServer: true, devlog: true },
+    'verify':       { cluster: true, buildHistory: true, benchmarkConfig: true, deployConfig: true, buildServer: true, knowledge: true, devlog: true },
+    'rollback':     { cluster: true, allClusters: true, deployConfig: true, fullBuildHistory: true, buildServer: true },
+    'observe':      { cluster: true, observability: true },
+    'discuss':      { memory: true, knowledge: true, featureState: true },
   };
 
   const needs = workflowNeeds[workflowName] || { all: true };
@@ -93,6 +105,7 @@ async function initWorkflow(workflowName, args) {
   const hooks = featureWithRepos.hooks || {};
 
   // Base context — shared by ALL workflows
+  const wikiDir = resolveWikiDir(vault, config, workspace);
   const base = {
     feature: {
       name: featureWithRepos.name,
@@ -104,6 +117,7 @@ async function initWorkflow(workflowName, args) {
     repos,
     workspace,
     vault,
+    wiki_dir: wikiDir,
     invariants,
     hooks,
     tuning,
@@ -115,7 +129,7 @@ async function initWorkflow(workflowName, args) {
   const devDir = path.join(root, '.dev');
 
   const knowledgeNotes = (needsAll || needs.knowledge)
-    ? collectKnowledgeNotes(vault, config) : [];
+    ? collectWikiPages(vault, config, workspace) : [];
 
   let stateMd = null;
   let decisions = [];
@@ -143,7 +157,14 @@ async function initWorkflow(workflowName, args) {
   const buildHistory = (needsAll || needs.buildHistory)
     ? (featureWithRepos.build_history || []).slice(-tuning.build_history_limit) : [];
 
-  const cluster = (needsAll || needs.cluster) ? getActiveCluster(config) : null;
+  let cluster = null;
+  if (needsAll || needs.cluster) {
+    try {
+      cluster = getActiveCluster(config, featureOverride);
+    } catch (e) {
+      process.stderr.write(`[devflow] WARN: cluster load failed (${e.message}), continuing without cluster context\n`);
+    }
+  }
   const clusterCtx = cluster ? {
     name: cluster.name,
     ssh: cluster.ssh,
@@ -153,7 +174,14 @@ async function initWorkflow(workflowName, args) {
     network: cluster.network || null,
   } : null;
 
-  const state = (needsAll || needs.artifacts) ? loadState(featureWithRepos.name) : null;
+  let state = null;
+  if (needsAll || needs.artifacts) {
+    try {
+      state = loadState(featureWithRepos.name, root);
+    } catch (e) {
+      process.stderr.write(`[devflow] WARN: artifact state load failed (${e.message}), continuing without artifacts\n`);
+    }
+  }
 
   const memoryContext = {
     state: stateMd ? stateMd.frontmatter : null,
@@ -164,32 +192,44 @@ async function initWorkflow(workflowName, args) {
     experience_notes: experienceNotes,
   };
 
-  // --- Build workflow-specific output ---
+  // --- Build workflow-specific output (v2 pipeline) ---
   const workflowContextMap = {
-    'code':        { ...base, feature_state: featureState },
-    'code-spec':   { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
-    'code-plan':   { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, build_history: buildHistory, devlog: config.devlog || {} },
-    'code-exec':   { ...base, ...memoryContext, feature_state: featureState },
-    'code-review': { ...base, ...memoryContext, feature_state: featureState },
-    'build':       { ...base, build_history: buildHistory, build: featureWithRepos.build || {}, build_server: config.build_server || null },
-    'deploy':      { ...base, cluster: clusterCtx, all_clusters: buildClusterSummary(config), deploy: featureWithRepos.deploy || {}, build_server: config.build_server || null },
-    'verify':      { ...base, cluster: clusterCtx, benchmark: featureWithRepos.benchmark || {}, verify: featureWithRepos.verify || {}, build_history: buildHistory, deploy: featureWithRepos.deploy || {}, build_server: config.build_server || null },
-    'rollback':    { ...base, cluster: clusterCtx, all_clusters: buildClusterSummary(config), deploy: featureWithRepos.deploy || {}, build_history: (featureWithRepos.build_history || []), build_server: config.build_server || null },
-    'observe':     { ...base, cluster: clusterCtx, observability: config.observability || {} },
-    'debug':       { ...base, ...memoryContext, cluster: clusterCtx, knowledge_notes: knowledgeNotes, build_history: buildHistory, devlog: config.devlog || {} },
-    'diff':        { ...base },
-    'status':      { ...base, cluster: clusterCtx, feature_state: featureState, build_history: buildHistory },
-    'clean':       { ...base, cluster: clusterCtx, all_features: buildAllFeaturesContext(config, workspace), build_server: config.build_server || null },
-    'cluster':     { ...base, cluster: clusterCtx, all_clusters: config.clusters || {} },
-    'log':         { ...base, devlog: config.devlog || {} },
-    'resume':      { ...base, ...memoryContext, cluster: clusterCtx, knowledge_notes: knowledgeNotes, build_history: buildHistory, artifacts: state, feature_state: featureState },
-    'pause':       { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, artifacts: state, devlog: config.devlog || {} },
-    'learn':       { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, devlog: config.devlog || {}, workspace_repos: config.repos || {} },
-    'quick':       { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, build_history: buildHistory },
-    'next':        { ...base, ...memoryContext, cluster: clusterCtx, feature_state: featureState, build_history: buildHistory, artifacts: state },
-    'discuss':     { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
-    'knowledge':   { ...base, knowledge_notes: knowledgeNotes },
-    'switch':      { ...base, feature_state: featureState },
+    // Pipeline stages
+    'spec':         { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'plan':         { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, build_history: buildHistory, devlog: config.devlog || {} },
+    'code':         { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'test':         { ...base, cluster: clusterCtx, feature_state: featureState },
+    'review':       { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'ship':         { ...base, cluster: clusterCtx, all_clusters: buildClusterSummary(config), build_history: buildHistory, build: featureWithRepos.build || {}, deploy: featureWithRepos.deploy || {}, build_server: config.build_server || null, knowledge_notes: knowledgeNotes, devlog: config.devlog || {} },
+    // Independent skills
+    'debug':        { ...base, ...memoryContext, cluster: clusterCtx, knowledge_notes: knowledgeNotes, build_history: buildHistory, devlog: config.devlog || {} },
+    'vllm-opt':     { ...base, cluster: clusterCtx, build_history: buildHistory, benchmark: featureWithRepos.benchmark || {}, verify: featureWithRepos.verify || {}, knowledge_notes: knowledgeNotes, devlog: config.devlog || {} },
+    'grafana-setup': { ...base, cluster: clusterCtx, observability: config.observability || {} },
+    'learn':        { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, devlog: config.devlog || {}, workspace_repos: config.repos || {} },
+    'code-simplify': { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'quick':        { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, build_history: buildHistory },
+    // Session & utilities
+    'pause':        { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, artifacts: state, devlog: config.devlog || {} },
+    'resume':       { ...base, ...memoryContext, cluster: clusterCtx, knowledge_notes: knowledgeNotes, build_history: buildHistory, artifacts: state, feature_state: featureState },
+    'diff':         { ...base },
+    'status':       { ...base, cluster: clusterCtx, feature_state: featureState, build_history: buildHistory, knowledge_notes: knowledgeNotes },
+    'clean':        { ...base, cluster: clusterCtx, all_features: buildAllFeaturesContext(config, workspace), build_server: config.build_server || null },
+    'cluster':      { ...base, cluster: clusterCtx, all_clusters: config.clusters || {} },
+    'log':          { ...base, devlog: config.devlog || {} },
+    'next':         { ...base, ...memoryContext, cluster: clusterCtx, feature_state: featureState, build_history: buildHistory, artifacts: state, knowledge_notes: knowledgeNotes },
+    'knowledge':    { ...base, knowledge_notes: knowledgeNotes, workspace_repos: config.repos || {} },
+    'switch':       { ...base, feature_state: featureState },
+    // Legacy aliases (backward compat)
+    'code-spec':    { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'code-plan':    { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState, build_history: buildHistory, devlog: config.devlog || {} },
+    'code-exec':    { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'code-review':  { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
+    'build':        { ...base, build_history: buildHistory, build: featureWithRepos.build || {}, build_server: config.build_server || null, knowledge_notes: knowledgeNotes, devlog: config.devlog || {} },
+    'deploy':       { ...base, cluster: clusterCtx, all_clusters: buildClusterSummary(config), all_features: buildAllFeaturesContext(config, workspace), deploy: featureWithRepos.deploy || {}, build_server: config.build_server || null, devlog: config.devlog || {} },
+    'verify':       { ...base, cluster: clusterCtx, benchmark: featureWithRepos.benchmark || {}, verify: featureWithRepos.verify || {}, build_history: buildHistory, deploy: featureWithRepos.deploy || {}, build_server: config.build_server || null, knowledge_notes: knowledgeNotes, devlog: config.devlog || {} },
+    'rollback':     { ...base, cluster: clusterCtx, all_clusters: buildClusterSummary(config), deploy: featureWithRepos.deploy || {}, build_history: (featureWithRepos.build_history || []), build_server: config.build_server || null },
+    'observe':      { ...base, cluster: clusterCtx, observability: config.observability || {} },
+    'discuss':      { ...base, ...memoryContext, knowledge_notes: knowledgeNotes, feature_state: featureState },
   };
 
   const context = workflowContextMap[workflowName];
@@ -275,6 +315,8 @@ async function initFeature(config, root, args) {
   const devDir = path.join(root, '.dev');
   const featureState = buildFeatureState(featureName, devDir);
 
+  const wikiDir = resolveWikiDir(vault, config, workspace);
+
   output({
     feature: {
       name: featureName,
@@ -286,6 +328,7 @@ async function initFeature(config, root, args) {
     repos,
     workspace,
     vault,
+    wiki_dir: wikiDir,
     invariants: feat.invariants || {},
     hooks: feat.hooks || {},
     deploy: feat.deploy || null,
@@ -392,23 +435,39 @@ function buildClusterSummary(config) {
   return result;
 }
 
-function collectKnowledgeNotes(vault, config) {
-  const knowledgeNotes = [];
-  if (vault && config.devlog && config.devlog.group) {
-    const knowledgeDir = path.join(vault, config.devlog.group, 'knowledge');
-    if (fs.existsSync(knowledgeDir)) {
-      try {
-        const files = fs.readdirSync(knowledgeDir).filter(f => f.endsWith('.md'));
-        for (const file of files) {
-          knowledgeNotes.push({
-            name: file.replace(/\.md$/, ''),
-            path: path.join(knowledgeDir, file),
-          });
-        }
-      } catch (_) { /* ignore */ }
-    }
+function resolveWikiDir(vault, config, workspace) {
+  // 1. Vault-level unified wiki/ (single wiki for all projects)
+  if (vault) {
+    const vaultWiki = path.join(vault, 'wiki');
+    if (fs.existsSync(vaultWiki)) return vaultWiki;
   }
-  return knowledgeNotes;
+  // 2. Local .dev/wiki/ (no-vault fallback)
+  if (workspace) {
+    const localWiki = path.join(workspace, '.dev', 'wiki');
+    if (fs.existsSync(localWiki)) return localWiki;
+  }
+  // 3. Default: vault-level wiki/ (will be created on first ingest)
+  if (vault) return path.join(vault, 'wiki');
+  if (workspace) return path.join(workspace, '.dev', 'wiki');
+  return null;
+}
+
+function collectWikiPages(vault, config, workspace) {
+  const wikiPages = [];
+  const wikiDir = resolveWikiDir(vault, config, workspace);
+  if (wikiDir && fs.existsSync(wikiDir)) {
+    try {
+      const files = fs.readdirSync(wikiDir)
+        .filter(f => f.endsWith('.md') && f !== 'index.md' && f !== 'log.md' && !f.startsWith('_'));
+      for (const file of files) {
+        wikiPages.push({
+          name: file.replace(/\.md$/, ''),
+          path: path.join(wikiDir, file),
+        });
+      }
+    } catch (_) { /* ignore */ }
+  }
+  return wikiPages;
 }
 
 function collectExperienceNotes(vault, config, featureName) {

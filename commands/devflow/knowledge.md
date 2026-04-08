@@ -1,26 +1,29 @@
 ---
 name: devflow:knowledge
-description: Knowledge base operations - list, coverage, update, search
-argument-hint: "<list|coverage|update|search>"
+description: Wiki operations — search, lint, list
+argument-hint: "<search|lint|list> [query]"
 allowed-tools:
   - Read
+  - Write
   - Bash
   - Glob
   - Grep
 ---
 <objective>
-Manage the Obsidian knowledge base. Requires vault configured in .dev.yaml.
+Manage the wiki knowledge base — search for answers, run health checks, or list pages.
 </objective>
-
-<execution_context>
-@../../skills/my-dev/workflows/knowledge-maintain.md
-</execution_context>
 
 <context>
 $ARGUMENTS
 </context>
 
 <process>
-Execute the knowledge workflow from @../../skills/my-dev/workflows/knowledge-maintain.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init knowledge`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init knowledge)
+```
+
+**Step 2**: Execute:
+Parse action (search/lint/list). SEARCH: match wiki/index.md, load pages, synthesize. LINT: check over-long, stale, orphans, dead links. LIST: display index.
 </process>

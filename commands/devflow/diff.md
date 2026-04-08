@@ -9,18 +9,20 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Display a summary of uncommitted and staged changes across all worktrees (or a specific repo) managed by the project.
+Display a summary of uncommitted and staged changes across all worktrees managed by the project.
 </objective>
-
-<execution_context>
-@../../skills/my-dev/workflows/info.md
-</execution_context>
 
 <context>
 diff $ARGUMENTS
 </context>
 
 <process>
-Execute the diff workflow from @../../skills/my-dev/workflows/info.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init diff`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init diff)
+```
+
+**Step 2**: Execute:
+For each repo in $INIT, run git -C <dev_worktree> diff --stat <base_ref>. If specific repo given, show full diff. Otherwise show summary table.
 </process>

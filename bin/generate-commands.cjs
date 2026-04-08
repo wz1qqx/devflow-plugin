@@ -8,6 +8,11 @@
  *
  * Reads commands/devflow/_registry.yaml and generates one .md file per command.
  * Skips commands listed in _skip (these are hand-maintained).
+ *
+ * Registry entry types:
+ *   skill:    → skills/my-dev/<file>       (flat skill file)
+ *   stage:    → skills/my-dev/stages/<file> (legacy, will be removed)
+ *   workflow: → skills/my-dev/workflows/<file> (legacy, will be removed)
  */
 
 const fs = require('fs');
@@ -23,8 +28,21 @@ function loadYaml(filePath) {
   return yaml.parse(content);
 }
 
+function resolveSkillPath(cmd) {
+  if (cmd.skill) return `skills/my-dev/${cmd.skill}`;
+  if (cmd.stage) return `skills/my-dev/stages/${cmd.stage}`;
+  if (cmd.workflow) return `skills/my-dev/workflows/${cmd.workflow}`;
+  return '';
+}
+
+function resolveSkillType(cmd) {
+  if (cmd.skill) return 'skill';
+  if (cmd.stage) return 'stage';
+  if (cmd.workflow) return 'workflow';
+  return 'inline';
+}
+
 function generateCommandMd(name, cmd) {
-  const workflowName = cmd.workflow || cmd.stage || `${name}.md`;
   const initAs = cmd['init-as'] || name;
   const contextPrefix = cmd['context-prefix'] || '';
   const argHint = cmd['argument-hint'] || '';
@@ -40,21 +58,35 @@ function generateCommandMd(name, cmd) {
     ? `${contextPrefix} $ARGUMENTS`
     : '$ARGUMENTS';
 
-  // Resolve workflow path: stages/ or workflows/ based on registry entry
-  const workflowDir = cmd.stage ? 'stages' : 'workflows';
-  const workflowRef = `@../../skills/my-dev/${workflowDir}/${workflowName}`;
+  const skillPath = resolveSkillPath(cmd);
+  const skillType = resolveSkillType(cmd);
 
-  const executionContext = cmd.workflow || cmd.stage
-    ? workflowRef
+  // Build execution_context reference
+  const executionContext = skillPath
+    ? `@../../${skillPath}`
     : (cmd.references ? cmd.references[0] : '');
 
+  // Build process steps
   const processLines = [];
-  if (cmd.workflow || cmd.stage) {
-    processLines.push(`Execute the ${name} ${cmd.stage ? 'stage' : 'workflow'} from ${workflowRef} end-to-end.`);
-    processLines.push(`Load project config via: \`node "$DEVFLOW_BIN" init ${initAs}\``);
+  processLines.push('**Step 1**: Discover CLI tool and load config:');
+  processLines.push('```bash');
+  processLines.push('DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)');
+  processLines.push(`INIT=$(node "$DEVFLOW_BIN" init ${initAs})`);
+  processLines.push('```');
+  processLines.push('');
+
+  if (skillPath) {
+    processLines.push(`**Step 2**: Read the ${skillType} file and execute it end-to-end:`);
+    const globPattern = `~/.claude/plugins/cache/devflow/devflow/*/${skillPath}`;
+    processLines.push('```bash');
+    processLines.push(`SKILL_FILE=$(ls ${globPattern} 2>/dev/null | head -1)`);
+    processLines.push('```');
+    processLines.push('Read `$SKILL_FILE` for the full process, then follow it step by step.');
+  } else if (cmd['inline-process']) {
+    processLines.push('**Step 2**: Execute:');
+    processLines.push(cmd['inline-process']);
   } else {
-    processLines.push(`Load project config via: \`node "$DEVFLOW_BIN" init ${initAs}\``);
-    processLines.push(`Execute inline based on arguments.`);
+    processLines.push('Execute inline based on arguments.');
   }
 
   const lines = [

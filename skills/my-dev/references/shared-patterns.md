@@ -50,7 +50,7 @@ Standardized checkpoint call. Tag is auto-resolved from feature config — do no
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `action` | Workflow name | `build`, `deploy`, `code-exec` |
+| `action` | Workflow name | `code`, `test`, `ship` |
 | `summary` | One-line description of what happened | `Deployed kimi-pd-v2 to paigpu-a` |
 
 **Call:**
@@ -75,7 +75,7 @@ Update feature stage and activity timestamp after workflow completion.
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `stage` | Target pipeline stage | `spec`, `plan`, `exec`, `review`, `build`, `deploy`, `verify` |
+| `stage` | Target pipeline stage | `spec`, `plan`, `code`, `test`, `review`, `ship` |
 
 **Call:**
 ```bash

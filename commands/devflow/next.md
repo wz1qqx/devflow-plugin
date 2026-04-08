@@ -12,15 +12,17 @@ allowed-tools:
 Read project state and suggest the most logical next action based on current phase and artifacts.
 </objective>
 
-<execution_context>
-@../../skills/my-dev/workflows/next.md
-</execution_context>
-
 <context>
 $ARGUMENTS
 </context>
 
 <process>
-Execute the next workflow from @../../skills/my-dev/workflows/next.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init next`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init next)
+```
+
+**Step 2**: Execute:
+Read phase from $INIT. Route: spec->plan, plan->code, code->test, test->review, review->ship. Check for HANDOFF.json (resume). Check for failed review (re-code). Suggest command.
 </process>

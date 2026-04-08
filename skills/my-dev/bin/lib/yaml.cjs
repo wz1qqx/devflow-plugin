@@ -202,11 +202,6 @@ function parseSequence(lines, idx, baseIndent) {
           }
         }
 
-        if (mapItem[key] === null && idx <= lines.length) {
-          const nextInd = idx < lines.length ? indent(lines[idx - 1]) : 0;
-          if (nextInd > baseIndent + 2) {
-          }
-        }
 
         result.push(mapItem);
       } else {

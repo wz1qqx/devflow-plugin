@@ -1,6 +1,6 @@
 ---
 name: devflow:clean
-description: Cleanup resources - worktrees, images, K8s resources
+description: Cleanup resources — worktrees, images, K8s resources
 argument-hint: "[--dry-run]"
 allowed-tools:
   - Read
@@ -13,15 +13,17 @@ allowed-tools:
 Scan for and optionally remove orphan worktrees, stale container images, and stale K8s pods.
 </objective>
 
-<execution_context>
-@../../skills/my-dev/workflows/clean.md
-</execution_context>
-
 <context>
 $ARGUMENTS
 </context>
 
 <process>
-Execute the clean workflow from @../../skills/my-dev/workflows/clean.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init clean`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init clean)
+```
+
+**Step 2**: Execute:
+Scan worktrees (orphans not in any feature scope), images (stale), pods (Error/CrashLoop). Report findings. With --dry-run, only report. Otherwise confirm each category before cleanup.
 </process>

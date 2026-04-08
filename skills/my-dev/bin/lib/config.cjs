@@ -154,8 +154,8 @@ function listFeatures(config) {
   }));
 }
 
-function getActiveCluster(config) {
-  const feature = getActiveFeature(config);
+function getActiveCluster(config, featureOverride) {
+  const feature = getActiveFeature(config, featureOverride);
   const clusterName = feature.cluster
     || (feature.deploy && feature.deploy.cluster)
     || (config.defaults && config.defaults.active_cluster);

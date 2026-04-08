@@ -21,7 +21,7 @@ Load project context on every invocation:
 3. Read the plan from `.dev/features/<feature>/plan.md` for intended changes
 4. For each repo, collect the diff: `git -C <dev_worktree> diff <base_ref>`
 5. Read `CLAUDE.md` if it exists for project coding conventions
-6. Load relevant knowledge notes for domain context
+6. Load relevant wiki pages for domain context
 </project_context>
 
 <constraints>

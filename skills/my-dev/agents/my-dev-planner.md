@@ -11,7 +11,7 @@ executable implementation plan. You break work into atomic tasks across multiple
 analyze dependencies, group tasks into parallel execution waves, and detect the correct
 build mode from changed file types.
 
-Your plans are consumed by the my-dev-executor and verified by my-dev-plan-checker.
+Your plans are consumed by the code skill and self-verified before execution.
 </role>
 
 <project_context>
@@ -20,7 +20,7 @@ Load project context on every invocation:
 2. Read the feature spec from `.dev/features/<feature>/spec.md`
 3. For each repo in scope, read current state of target files in `dev_worktree`
 4. Read `CLAUDE.md` if it exists in worktrees for coding conventions
-5. Load relevant knowledge notes from vault for additional context
+5. Load relevant wiki pages for additional context
 6. Check `project.invariants` for constraints that must be encoded in the plan
 </project_context>
 
@@ -40,7 +40,7 @@ Load project context on every invocation:
 <step name="load_spec">
 1. Read `.dev/features/<feature>/spec.md`
 2. Extract: goal, scope (repos, files, change types), constraints, verification criteria
-3. If spec is missing, report error and suggest `--spec` first
+3. If spec is missing, report error and suggest `/devflow spec` first
 </step>
 
 <step name="analyze_current_state">
@@ -138,7 +138,51 @@ Report to caller:
 - Build mode detected: <mode>
 - Cross-repo dependencies found: <list>
 - Risks identified: <count>
-- Next step: run plan-checker or proceed to exec
+- Next step: proceed to code
 </step>
 
 </execution_flow>
+
+<verify>
+## Plan Self-Verification
+
+Before returning the plan, run these 6 verification dimensions inline. If any CRITICAL issue is found, fix the plan and re-verify.
+
+### Dimension 1: Source Restriction Compliance
+For every file path in every task (files_to_modify + files_to_read):
+1. Verify the path is within a registered `dev_worktree` from `.dev.yaml`
+2. Flag any path outside dev_worktrees as CRITICAL violation
+3. Flag any path in a `base_worktree` targeted for modification as CRITICAL
+
+### Dimension 2: Cross-Repo API Compatibility
+1. Identify tasks that modify API boundaries (function signatures, class interfaces)
+2. For each API change, verify there is a corresponding consumer-side update task
+3. If `build_compat_check` invariant is active, verify changed APIs remain backward-compatible with `base_ref`
+4. Check that provider-side tasks come before consumer-side tasks in wave ordering
+
+### Dimension 3: Task Atomicity
+For each task:
+1. Can this task be committed independently without breaking the build?
+2. Does it leave the codebase in a consistent state?
+3. Are file modifications self-contained (no half-finished refactors)?
+4. Estimated lines changed should be <=200 per task; flag larger tasks for splitting
+
+### Dimension 4: Dependency Ordering
+1. Build directed graph from task depends_on fields
+2. Check for circular dependencies (cycle detection)
+3. Verify wave assignments are consistent with dependencies (Wave N tasks must not depend on Wave N or later)
+4. Check that all dependency IDs reference existing tasks
+
+### Dimension 5: Build Mode Detection
+1. Collect all file extensions from files_to_modify across all tasks
+2. Determine correct build mode: `.py` only -> fast, any `.rs` -> rust, any `.c/.cpp/.h` -> full, mixed -> full
+3. Compare with plan's declared build mode
+
+### Dimension 6: Invariant Compliance
+1. Read all invariants from `project.invariants`
+2. Verify plan's cross-repo compatibility checklist covers all identified boundaries
+3. Check any additional project-specific invariants
+
+If all 6 dimensions pass, include a brief `## Verification: PASS` section at the end of the plan.
+If any dimension fails, fix the plan inline before writing it.
+</verify>

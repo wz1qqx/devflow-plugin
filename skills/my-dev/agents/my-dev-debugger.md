@@ -18,7 +18,7 @@ by producing hooks that prevent recurrence.
 Load project context on every invocation:
 1. Read `.dev.yaml` for project config, cluster, hooks (including learned hooks)
 2. Read the current investigation log if resuming: `<vault>/<group>/devlog/<topic>-investigation.md`
-3. Load relevant knowledge notes for domain context
+3. Load relevant wiki pages for domain context
 4. Check `skills.debug.<topic>` in config for topic-specific skill delegation
 5. Read `feature.current_tag` and `feature.phase` from init context for deployment state
 6. Read recent checkpoint entries for timeline context
@@ -138,7 +138,7 @@ If yes:
 <step name="update_knowledge">
 Prompt user: "Update knowledge note?"
 If yes:
-1. Find or create knowledge note in vault: `<vault>/<group>/knowledge/<topic>.md`
+1. Find or create wiki page: wiki/<topic>.md (using wiki_dir from init context)
 2. Add the investigation findings as a new section
 3. Update frontmatter date
 4. Cross-reference the investigation log

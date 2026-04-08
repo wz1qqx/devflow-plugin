@@ -1,6 +1,6 @@
 ---
 name: devflow:cluster
-description: Manage Kubernetes clusters - add, use, list
+description: Manage Kubernetes clusters — add, use, list
 argument-hint: "<add|use|list> [name]"
 allowed-tools:
   - Read
@@ -10,18 +10,20 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Manage cluster profiles in .dev.yaml. Add new clusters, switch active cluster, or list available ones.
+Manage cluster profiles in .dev.yaml.
 </objective>
-
-<execution_context>
-@../../skills/my-dev/workflows/cluster.md
-</execution_context>
 
 <context>
 $ARGUMENTS
 </context>
 
 <process>
-Execute the cluster workflow from @../../skills/my-dev/workflows/cluster.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init cluster`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init cluster)
+```
+
+**Step 2**: Execute:
+Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection, save to .dev.yaml.
 </process>

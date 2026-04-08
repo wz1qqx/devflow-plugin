@@ -1,6 +1,6 @@
 ---
 name: devflow:log
-description: Quick checkpoint - save progress snapshot to devlog
+description: Quick checkpoint — save progress snapshot to devlog
 argument-hint: "[message]"
 allowed-tools:
   - Read
@@ -8,18 +8,20 @@ allowed-tools:
   - Bash
 ---
 <objective>
-Record a quick checkpoint in the devlog with current state, changes made, and an optional message.
+Record a quick checkpoint in the devlog.
 </objective>
-
-<execution_context>
-@../../skills/my-dev/stages/log.md
-</execution_context>
 
 <context>
 $ARGUMENTS
 </context>
 
 <process>
-Execute the log stage from @../../skills/my-dev/stages/log.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init log`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init log)
+```
+
+**Step 2**: Execute:
+Run: node $DEVFLOW_BIN checkpoint --action $ARGUMENTS
 </process>

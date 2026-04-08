@@ -61,7 +61,7 @@ defaults:
     <agent-name>: <model>           # e.g., my-custom-auditor: opus
   tuning:                           # Optional tunable parameters (all have defaults)
     regression_threshold: 20        # Benchmark regression alert threshold (%)
-    max_task_retries: 2             # code-exec max retries per failed task
+    max_task_retries: 2             # code max retries per failed task
     deploy_timeout: 300             # Pod readiness timeout (seconds)
     deploy_poll_interval: 15        # Pod status poll interval (seconds)
     build_history_limit: 5          # Number of build history entries in context
@@ -85,7 +85,7 @@ features:
         build_type: <string>        # Optional: e.g. "wheel"
 
     # 生命周期状态
-    phase: init | spec | discuss | plan | exec | review | build | deploy | verify | observe | debug | dev | completed
+    phase: spec | plan | code | test | review | ship | debug | dev | completed
     current_tag: <string>           # Latest built image tag
     base_image: <string|null>       # Base Docker image
     cluster: <string>               # Override cluster for this feature
@@ -169,6 +169,10 @@ features:
         output_len: <int>              # Output sequence length (default: 32)
         num_iters: <int>               # Benchmark iterations (default: 3)
         nsys_path: <path>              # Override nsys binary path (optional, auto-detected)
+
+    ship:
+      strategy: docker | k8s | ci-cd
+      # ... existing build/deploy config fields
 
     build_history:
       - tag: <string>

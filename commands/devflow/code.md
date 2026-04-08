@@ -1,7 +1,7 @@
 ---
 name: devflow:code
-description: Structured coding workflow - spec/plan/exec/review pipeline
-argument-hint: "<feature> [--spec|--plan|--exec|--review|--status]"
+description: Implement plan with RED-GREEN-REFACTOR-Commit cycle and wave parallelism
+argument-hint: "<feature> [--verify] [--review-each] [--sequential]"
 allowed-tools:
   - Read
   - Write
@@ -13,11 +13,11 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Drive a feature through the structured coding pipeline: specification, planning, execution, and review. Dispatches to the appropriate sub-workflow based on the provided flag.
+Execute the implementation plan task by task with TDD cycle, atomic commits, and optional wave parallelism.
 </objective>
 
 <execution_context>
-@../../skills/my-dev/workflows/code.md
+@../../skills/my-dev/code.md
 </execution_context>
 
 <context>
@@ -25,14 +25,15 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the code workflow from @../../skills/my-dev/workflows/code.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init code`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init code)
+```
 
-Parse the flag from arguments and dispatch accordingly:
-- `--spec`   → Execute @../../skills/my-dev/stages/code-spec.md (gather requirements, write spec)
-- `--plan`   → Execute @../../skills/my-dev/stages/code-plan.md (break spec into implementation plan)
-- `--exec`   → Execute @../../skills/my-dev/stages/code-exec.md (implement plan with TDD)
-- `--review` → Execute @../../skills/my-dev/stages/code-review.md (code review and quality checks)
-- `--status` → Show current pipeline stage and pending items inline (no sub-workflow)
-- No flag    → Auto-detect current stage from .dev.yaml state and resume from there
+**Step 2**: Read the skill file and execute it end-to-end:
+```bash
+SKILL_FILE=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/code.md 2>/dev/null | head -1)
+```
+Read `$SKILL_FILE` for the full process, then follow it step by step.
 </process>

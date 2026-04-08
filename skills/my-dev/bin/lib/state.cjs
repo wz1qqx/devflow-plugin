@@ -5,10 +5,10 @@ const path = require('path');
 const { output, error, findWorkspaceRoot } = require('./core.cjs');
 const { loadConfig, getActiveFeature } = require('./config.cjs');
 
-function loadState(featureName) {
-  const root = findWorkspaceRoot();
-  if (!root) error('.dev.yaml not found');
-  const devDir = path.join(root, '.dev');
+function loadState(featureName, root) {
+  const r = root || findWorkspaceRoot();
+  if (!r) error('.dev.yaml not found');
+  const devDir = path.join(r, '.dev');
   const state = { specs: [], plans: [], reviews: [] };
 
   // Check per-feature artifacts (current schema: .dev/features/<name>/)
@@ -35,15 +35,37 @@ function loadState(featureName) {
   return state;
 }
 
+// TODO: remove after v3 migration period — users may have multiple projects
+// that won't all resume on the same day.
+const PHASE_MIGRATION = {
+  'init':     'spec',
+  'discuss':  'spec',
+  'exec':     'code',
+  'deploy':   'ship',
+  'observe':  'ship',
+  'rollback': 'ship',
+  'build':    'ship',    // old "build" = container build → now "ship"
+  'verify':   'test',
+};
+
 /**
- * Get phase for a feature.
+ * Get phase for a feature. Auto-migrates legacy phase values.
  */
 function getPhase(config, featureName) {
   const name = featureName || (config.defaults && config.defaults.active_feature);
   if (!name) error('No feature specified');
   const feature = config.features && config.features[name];
   if (!feature) error(`Feature '${name}' not found`);
-  return feature.phase || 'init';
+  const raw = feature.phase || 'spec';
+
+  // Auto-migrate legacy phases
+  if (PHASE_MIGRATION[raw]) {
+    const migrated = PHASE_MIGRATION[raw];
+    process.stderr.write(`[devflow] Phase '${raw}' migrated to '${migrated}' (v2 pipeline)\n`);
+    try { updatePhase(config, name, migrated); } catch (_) { /* best effort */ }
+    return migrated;
+  }
+  return raw;
 }
 
 /**
@@ -51,8 +73,8 @@ function getPhase(config, featureName) {
  */
 function updatePhase(config, featureName, phase) {
   const validPhases = [
-    'init', 'spec', 'discuss', 'plan', 'exec', 'review',
-    'build', 'deploy', 'verify', 'observe', 'debug', 'dev', 'completed',
+    'spec', 'plan', 'code', 'test', 'review',
+    'ship', 'debug', 'dev', 'completed',
   ];
   if (!validPhases.includes(phase)) {
     error(`Invalid phase '${phase}'. Valid: ${validPhases.join(', ')}`);

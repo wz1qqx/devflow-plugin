@@ -7,9 +7,15 @@ function output(data) {
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
+class DevflowError extends Error {
+  constructor(msg) {
+    super(msg);
+    this.name = 'DevflowError';
+  }
+}
+
 function error(msg) {
-  process.stderr.write(`[devflow] ERROR: ${msg}\n`);
-  process.exit(1);
+  throw new DevflowError(msg);
 }
 
 function parseArgs(args) {
@@ -69,4 +75,4 @@ function countEffectiveWords(text) {
   return Math.round(asciiWords + cjkChars * 1.5);
 }
 
-module.exports = { output, error, parseArgs, findWorkspaceRoot, expandHome, countEffectiveWords };
+module.exports = { output, error, DevflowError, parseArgs, findWorkspaceRoot, expandHome, countEffectiveWords };

@@ -1,10 +1,10 @@
 ---
-project: {{PROJECT}}
+project: unknown
 phase: init
 current_feature: null
 feature_stage: null
 plan_progress: "0/0"
-last_activity: "{{TIMESTAMP}}"
+last_activity: ""
 ---
 
 ## Position

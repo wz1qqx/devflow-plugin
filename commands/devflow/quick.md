@@ -1,7 +1,7 @@
 ---
 name: devflow:quick
-description: Execute ad-hoc task with atomic commits — skip full spec/plan ceremony
-argument-hint: ""<description>" [--discuss] [--research] [--full]"
+description: Execute ad-hoc task with atomic commits — skip full pipeline
+argument-hint: ""<description>" [--discuss] [--research]"
 allowed-tools:
   - Read
   - Write
@@ -17,7 +17,7 @@ Execute a small task (max 3 tasks) with atomic commits, bypassing the full spec/
 </objective>
 
 <execution_context>
-@../../skills/my-dev/workflows/quick.md
+@../../skills/my-dev/quick.md
 </execution_context>
 
 <context>
@@ -25,6 +25,15 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the quick workflow from @../../skills/my-dev/workflows/quick.md end-to-end.
-Load project config via: `node "$DEVFLOW_BIN" init quick`
+**Step 1**: Discover CLI tool and load config:
+```bash
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVFLOW_BIN" init quick)
+```
+
+**Step 2**: Read the skill file and execute it end-to-end:
+```bash
+SKILL_FILE=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/quick.md 2>/dev/null | head -1)
+```
+Read `$SKILL_FILE` for the full process, then follow it step by step.
 </process>
