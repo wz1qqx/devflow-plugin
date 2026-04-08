@@ -87,6 +87,11 @@ function parseNode(lines, idx, parentIndent) {
   return parseMapping(lines, idx, ind);
 }
 
+function isBlockScalarIndicator(s) {
+  s = s.trim();
+  return s === '|' || s === '>' || s === '|-' || s === '|+' || s === '>-' || s === '>+';
+}
+
 function findColon(trimmed) {
   let inSingle = false;
   let inDouble = false;
@@ -122,7 +127,17 @@ function parseMapping(lines, idx, baseIndent) {
     const key = trimmed.slice(0, colonPos).trim();
     const rest = trimmed.slice(colonPos + 1).trim();
 
-    if (rest !== '') {
+    if (rest !== '' && isBlockScalarIndicator(rest)) {
+      // Block scalar (| or >): consume all deeper-indented continuation lines
+      const blockIndent = indent(lines[idx]);
+      idx++;
+      const blockLines = [];
+      while (idx < lines.length && indent(lines[idx]) > blockIndent) {
+        blockLines.push(lines[idx].slice(blockIndent + 2)); // strip base indent
+        idx++;
+      }
+      result[key] = blockLines.join('\n');
+    } else if (rest !== '') {
       result[key] = parseScalar(rest);
       idx++;
     } else {
