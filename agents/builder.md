@@ -14,7 +14,7 @@ and build history. You do NOT deploy — that is the Shipper's job.
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 INIT=$(node "$DEVFLOW_BIN" init team-build)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')

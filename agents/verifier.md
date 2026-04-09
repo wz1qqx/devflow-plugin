@@ -16,7 +16,7 @@ On FAIL, your report must include enough structured data for the vLLM-Opter to d
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 INIT=$(node "$DEVFLOW_BIN" init team-verify)
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
 SSH_HOST=$(echo "$SSH" | grep -oP '\S+@\S+' | tail -1)

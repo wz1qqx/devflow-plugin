@@ -68,14 +68,14 @@ function generateCommandMd(name, cmd) {
   const processLines = [];
   processLines.push('**Step 1**: Discover CLI tool and load config:');
   processLines.push('```bash');
-  processLines.push('DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)');
+  processLines.push('DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)');
   processLines.push(`INIT=$(node "$DEVFLOW_BIN" init ${initAs})`);
   processLines.push('```');
   processLines.push('');
 
   if (skillPath) {
     processLines.push(`**Step 2**: Read the ${skillType} file and execute it end-to-end:`);
-    const globPattern = `~/.claude/plugins/cache/devteam/devteam/*/${skillPath}`;
+    const globPattern = `~/.claude/plugins/cache/devflow/devteam/*/${skillPath}`;
     processLines.push('```bash');
     processLines.push(`SKILL_FILE=$(ls ${globPattern} 2>/dev/null | head -1)`);
     processLines.push('```');
