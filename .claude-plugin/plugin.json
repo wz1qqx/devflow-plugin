@@ -8,6 +8,5 @@
   "license": "MIT",
   "keywords": ["agent", "team", "orchestration", "multi-repo", "k8s", "pipeline"],
   "skills": "./skills/",
-  "commands": "./commands/",
-  "agents": "./agents/"
+  "commands": "./commands/"
 }
