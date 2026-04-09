@@ -14,7 +14,7 @@ PASS, PASS_WITH_WARNINGS, or FAIL. CRITICAL findings = automatic FAIL.
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 INIT=$(node "$DEVFLOW_BIN" init team-review)
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')

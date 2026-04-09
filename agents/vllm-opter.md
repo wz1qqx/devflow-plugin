@@ -16,7 +16,7 @@ Core principle: "Never tune what you haven't profiled. Never profile what you ha
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 INIT=$(node "$DEVFLOW_BIN" init team-vllm-opt)
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
 SVC_URL=$(echo "$INIT" | jq -r '.deploy.service_url // empty')

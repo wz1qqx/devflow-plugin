@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet)](https://claude.ai/claude-code)
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-green)](https://nodejs.org)
-[![v2.0.0](https://img.shields.io/badge/version-2.0.0-orange)](https://github.com/wz1qqx/devflow-plugin)
+[![v2.0.0](https://img.shields.io/badge/version-2.0.0-orange)](https://github.com/wz1qqx/devteam)
 
 Multi-agent pipeline orchestration for Claude Code. One command launches a team of specialized AI agents that take a feature from spec to verified deployment — with automatic feedback loops.
 
@@ -24,7 +24,7 @@ The orchestrator is a coordinator, not an implementer. Each agent has scoped too
 
 ```bash
 # Install from marketplace
-claude plugin marketplace add wz1qqx/devflow-plugin
+claude plugin marketplace add wz1qqx/devteam
 claude plugin install devteam@devteam
 
 # In your project directory
@@ -140,7 +140,7 @@ The agent cannot self-certify — evidence is required at every gate.
 ### Directory Layout
 
 ```
-devflow-plugin/
+devteam/
 ├── .claude-plugin/
 │   ├── plugin.json                # Plugin manifest (devteam v2.0.0)
 │   └── marketplace.json           # Marketplace listing
@@ -288,8 +288,8 @@ All `kubectl` commands are enforced with `-n <namespace>`. Production clusters (
 ## Local Development
 
 ```bash
-git clone https://github.com/wz1qqx/devflow-plugin.git ~/devflow-plugin
-bash ~/devflow-plugin/bin/setup.sh
+git clone https://github.com/wz1qqx/devteam.git ~/devteam
+bash ~/devteam/bin/setup.sh
 ```
 
 Regenerate commands after modifying `_registry.yaml`:

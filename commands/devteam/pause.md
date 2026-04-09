@@ -23,13 +23,13 @@ $ARGUMENTS
 <process>
 **Step 1**: Discover CLI tool and load config:
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 INIT=$(node "$DEVFLOW_BIN" init pause)
 ```
 
 **Step 2**: Read the skill file and execute it end-to-end:
 ```bash
-SKILL_FILE=$(ls ~/.claude/plugins/cache/devflow/devteam/*/skills/pause.md 2>/dev/null | head -1)
+SKILL_FILE=$(ls ~/.claude/plugins/cache/devteam/devteam/*/skills/pause.md 2>/dev/null | head -1)
 ```
 Read `$SKILL_FILE` for the full process, then follow it step by step.
 </process>

@@ -1,9 +1,9 @@
 #!/bin/bash
-# devflow plugin — local development helper
+# devteam plugin — local development helper
 #
 # For marketplace users: no setup needed. Install via:
-#   claude plugin marketplace add wz1qqx/devflow-plugin
-#   claude plugin install devflow@devflow
+#   claude plugin marketplace add wz1qqx/devteam
+#   claude plugin install devteam@devteam
 #
 # This script is ONLY for local development:
 #   - Verifies prerequisites (Node.js, python3)
@@ -14,20 +14,24 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SKILL_ROOT="$PLUGIN_ROOT/skills/my-dev"
+CLI_ROOT="$PLUGIN_ROOT/lib"
 
-echo "=== devflow development check ==="
+echo "=== devteam development check ==="
 echo "Plugin root: $PLUGIN_ROOT"
 echo ""
 
 # --- 1. Check marketplace installation ---
-MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devflow/devflow/*/skills/my-dev/bin/my-dev-tools.cjs 2>/dev/null | head -1 || true)
+MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1 || true)
+if [ -z "$MARKETPLACE_BIN" ]; then
+  # Also check if marketplace name matches plugin name (devteam/devteam)
+  MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1 || true)
+fi
 if [ -n "$MARKETPLACE_BIN" ]; then
-  echo "[OK] Marketplace install detected: $(dirname "$(dirname "$(dirname "$(dirname "$MARKETPLACE_BIN")")")")"
+  echo "[OK] Marketplace install detected: $(dirname "$(dirname "$MARKETPLACE_BIN")")"
 else
   echo "[INFO] No marketplace install found. For production use:"
-  echo "       claude plugin marketplace add wz1qqx/devflow-plugin"
-  echo "       claude plugin install devflow@devflow"
+  echo "       claude plugin marketplace add wz1qqx/devteam"
+  echo "       claude plugin install devteam@devteam"
 fi
 
 # --- 2. Verify prerequisites ---
@@ -48,14 +52,14 @@ else
 fi
 
 # --- 3. Verify tool is callable ---
-if [ -f "$SKILL_ROOT/bin/my-dev-tools.cjs" ]; then
-  if node "$SKILL_ROOT/bin/my-dev-tools.cjs" features list > /dev/null 2>&1; then
+if [ -f "$CLI_ROOT/devteam.cjs" ]; then
+  if node "$CLI_ROOT/devteam.cjs" features list > /dev/null 2>&1; then
     echo "[OK] CLI tools working (workspace detected)"
   else
-    echo "[OK] CLI tools callable (no workspace configured yet — run /devflow:init)"
+    echo "[OK] CLI tools callable (no workspace configured yet — run /devteam:init)"
   fi
 else
-  echo "[ERROR] my-dev-tools.cjs not found at $SKILL_ROOT/bin/"
+  echo "[ERROR] devteam.cjs not found at $CLI_ROOT/"
   exit 1
 fi
 
@@ -64,9 +68,6 @@ echo ""
 LEGACY=false
 [ -L "$HOME/.claude/my-dev" ] && echo "[LEGACY] ~/.claude/my-dev symlink exists (can be removed)" && LEGACY=true
 [ -L "$HOME/.claude/commands/devflow" ] && echo "[LEGACY] ~/.claude/commands/devflow symlink exists (can be removed)" && LEGACY=true
-[ -L "$HOME/.claude/hooks/my-dev-context-monitor.js" ] && echo "[LEGACY] ~/.claude/hooks/my-dev-context-monitor.js symlink exists (can be removed)" && LEGACY=true
-[ -L "$HOME/.claude/hooks/devflow-persistent.js" ] && echo "[LEGACY] ~/.claude/hooks/devflow-persistent.js symlink exists (can be removed)" && LEGACY=true
-[ -L "$HOME/.claude/hooks/my-dev-statusline.js" ] && echo "[LEGACY] ~/.claude/hooks/my-dev-statusline.js symlink exists (can be removed)" && LEGACY=true
 if [ "$LEGACY" = false ]; then
   echo "[OK] No legacy symlinks found"
 fi
@@ -76,6 +77,6 @@ echo "=== Check complete ==="
 echo ""
 echo "Next steps:"
 echo "  1. cd <your-project-directory>"
-echo "  2. Run /devflow:init to initialize workspace (.dev.yaml)"
-echo "  3. Run /devflow:init feature <name> to create your first feature"
-echo "  4. Run /devflow:next to see what to do next"
+echo "  2. Run /devteam:init to initialize workspace (.dev.yaml)"
+echo "  3. Run /devteam:init feature <name> to create your first feature"
+echo "  4. Run /devteam:team <feature> to start the automated pipeline"

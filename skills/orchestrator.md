@@ -18,7 +18,7 @@ verifier FAIL → vllm-opter → planner re-plan), and cleans up when done.
 Initialize workflow context and parse arguments.
 
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 INIT=$(node "$DEVFLOW_BIN" init team)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 ```
