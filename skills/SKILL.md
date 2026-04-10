@@ -18,6 +18,7 @@ When the user invokes `/devteam <action> [args]`, route to the matching command:
 | `diff` | `/devteam diff` | Show worktree changes |
 | `learn <topic>` | `/devteam learn` | Research and create wiki pages |
 | `knowledge <action>` | `/devteam knowledge` | Wiki operations |
+| `feature [list\|delete]` | `/devteam feature` | List/select/delete features |
 | `init <workspace\|feature>` | `/devteam init` | Initialize workspace or add feature |
 | `cluster <add\|use\|list>` | `/devteam cluster` | Manage K8s cluster profiles |
 | `clean` | `/devteam clean` | Cleanup orphan worktrees/images/pods |

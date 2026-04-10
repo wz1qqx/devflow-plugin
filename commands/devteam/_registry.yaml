@@ -74,6 +74,20 @@ commands:
   # PROJECT MANAGEMENT
   # ═══════════════════════════════════════
 
+  feature:
+    description: List features and select/delete — use at session start to pick active feature
+    argument-hint: "[list|delete] [name]"
+    objective: Show all features with status, let user select one to bind as active, or delete a feature. When invoked without args, list features and prompt user to choose.
+    init-as: workspace
+    allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
+    inline-process: |
+      1. Run CLI: `node "$DEVFLOW_BIN" features list` to get all features with phase/scope
+      2. Display features as a table: name, description, phase, scope
+      3. If action is `delete`: confirm with AskUserQuestion, then run `node "$DEVFLOW_BIN" features delete <name>`
+      4. If action is `list` or no action: use AskUserQuestion to let user pick a feature
+      5. Run `node "$DEVFLOW_BIN" features switch <selected>` to bind the selection
+      6. Show confirmation: "Feature '<name>' is now active"
+
   init:
     description: Initialize workspace or add a new feature
     argument-hint: "<workspace|feature> [name]"
