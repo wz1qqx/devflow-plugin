@@ -90,26 +90,29 @@ function run(data) {
     }
     parts.push(projectName);
 
+    // Read active feature from .dev.yaml defaults.active_feature
     let feature = '';
     let phase = '';
-    const statePath = path.join(root, '.dev', 'STATE.md');
     try {
-      if (fs.existsSync(statePath)) {
-        const stateContent = fs.readFileSync(statePath, 'utf8');
-        const fm = parseStateFrontmatter(stateContent);
-        feature = fm.current_feature || '';
-        phase = fm.feature_stage || fm.phase || '';
+      const yaml = fs.readFileSync(file, 'utf8');
+      feature = parseYamlValue(yaml, 'active_feature') || '';
+      if (feature) {
+        // Extract phase from the feature block in .dev.yaml
+        const featureBlockRe = new RegExp(`^\\s+${feature}:[\\s\\S]*?^\\s+phase:\\s*(.+)$`, 'm');
+        const phaseMatch = yaml.match(featureBlockRe);
+        phase = phaseMatch ? phaseMatch[1].trim() : '';
       }
     } catch (_) { /* ignore */ }
 
+    // Fallback: try STATE.md
     if (!feature) {
-      const featDir = path.join(root, '.dev', 'features');
+      const statePath = path.join(root, '.dev', 'STATE.md');
       try {
-        if (fs.existsSync(featDir)) {
-          const dirs = fs.readdirSync(featDir).filter(d =>
-            fs.statSync(path.join(featDir, d)).isDirectory()
-          );
-          if (dirs.length === 1) feature = dirs[0];
+        if (fs.existsSync(statePath)) {
+          const stateContent = fs.readFileSync(statePath, 'utf8');
+          const fm = parseStateFrontmatter(stateContent);
+          feature = fm.current_feature || '';
+          phase = phase || fm.feature_stage || fm.phase || '';
         }
       } catch (_) { /* ignore */ }
     }
