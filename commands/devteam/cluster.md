@@ -24,6 +24,8 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init cluster)
 ```
 
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init cluster --feature $SELECTED)`
+
 **Step 2**: Execute:
 Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection (ssh, namespace, safety, hardware), save to .dev.yaml.
 </process>

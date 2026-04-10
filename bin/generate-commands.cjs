@@ -72,6 +72,8 @@ function generateCommandMd(name, cmd) {
   processLines.push(`INIT=$(node "$DEVFLOW_BIN" init ${initAs})`);
   processLines.push('```');
   processLines.push('');
+  processLines.push('If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init ' + initAs + ' --feature $SELECTED)`');
+  processLines.push('');
 
   if (skillPath) {
     processLines.push(`**Step 2**: Read the ${skillType} file and execute it end-to-end:`);

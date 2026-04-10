@@ -19,23 +19,34 @@ Initialize workflow context and parse arguments.
 
 ```bash
 DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team)
-WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 ```
 
 Parse from $ARGUMENTS:
-- **FEATURE**: first positional arg (required)
+- **FEATURE**: first positional arg (optional — will prompt if not provided)
 - **--max-loops N**: max optimization iterations (default: `tuning.max_optimization_loops`, typically 3)
 - **--skip-spec**: skip spec phase if spec.md already exists
 
 ```bash
+# Load context with feature if provided
 FEATURE="$1"
+if [ -n "$FEATURE" ]; then
+  INIT=$(node "$DEVFLOW_BIN" init team --feature "$FEATURE")
+else
+  INIT=$(node "$DEVFLOW_BIN" init team)
+fi
+WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
+```
+
+**Feature selection**: If `$INIT` has `feature: null` and `available_features` list, use AskUserQuestion
+to let the user pick a feature from the list. Then re-run `init team --feature $SELECTED`.
+
+```bash
 MAX_LOOPS=$(echo "$INIT" | jq -r '.tuning.max_optimization_loops // 3')
 ```
 
 Gates:
 - .dev.yaml must exist
-- Feature must be defined in .dev.yaml
+- Feature must be defined in .dev.yaml (resolved via argument, auto-select, or user prompt)
 - If not --skip-spec and spec.md exists, ask user whether to re-spec or skip
 </step>
 

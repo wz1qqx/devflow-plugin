@@ -25,6 +25,8 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init workspace)
 ```
 
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init workspace --feature $SELECTED)`
+
 **Step 2**: Execute:
 Parse action (workspace|feature). WORKSPACE: create .dev.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature entry in .dev.yaml, create .dev/features/<name>/ directory, set as active feature.
 </process>

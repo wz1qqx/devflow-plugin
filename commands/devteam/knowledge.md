@@ -24,6 +24,8 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init knowledge)
 ```
 
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init knowledge --feature $SELECTED)`
+
 **Step 2**: Execute:
 Parse action (search/lint/list). SEARCH: match wiki/index.md, load pages, synthesize. LINT: check over-long, stale, orphans, dead links. LIST: display index.
 </process>

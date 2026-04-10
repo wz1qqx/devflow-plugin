@@ -24,6 +24,8 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init clean)
 ```
 
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init clean --feature $SELECTED)`
+
 **Step 2**: Execute:
 Scan worktrees (orphans not in any feature scope), images (stale), pods (Error/CrashLoop). Report findings. With --dry-run, only report. Otherwise confirm each category before cleanup.
 </process>

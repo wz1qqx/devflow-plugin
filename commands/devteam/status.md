@@ -22,6 +22,8 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init status)
 ```
 
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init status --feature $SELECTED)`
+
 **Step 2**: Execute:
 Parse $INIT JSON. Display: active feature, current phase, repos (commits ahead, uncommitted), cluster info, build history, team status if active. Format as dashboard table.
 </process>

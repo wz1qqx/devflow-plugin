@@ -23,6 +23,8 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init diff)
 ```
 
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init diff --feature $SELECTED)`
+
 **Step 2**: Execute:
 For each repo in $INIT, run git -C <dev_worktree> diff --stat <base_ref>. If specific repo given, show full diff. Otherwise show summary table.
 </process>

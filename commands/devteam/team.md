@@ -30,6 +30,8 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init team)
 ```
 
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init team --feature $SELECTED)`
+
 **Step 2**: Read the skill file and execute it end-to-end:
 ```bash
 SKILL_FILE=$(ls ~/.claude/plugins/cache/devteam/devteam/*/skills/orchestrator.md 2>/dev/null | head -1)
