@@ -19,7 +19,7 @@ On FAIL, your report must include enough structured data for the vLLM-Opter to d
 DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 INIT=$(node "$DEVFLOW_BIN" init team-verify)
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
-SSH_HOST=$(echo "$SSH" | grep -oP '\S+@\S+' | tail -1)
+SSH_HOST=$(echo "$SSH" | grep -oE '[^ ]+@[^ ]+' | tail -1)
 NAMESPACE=$(echo "$INIT" | jq -r '.cluster.namespace')
 DGD_NAME=$(echo "$INIT" | jq -r '.deploy.dgd_name // .deploy.app_label // "vllm"')
 SVC_URL=$(echo "$INIT" | jq -r '.deploy.service_url // empty')
@@ -59,27 +59,34 @@ Result: PASS (3/3) or FAIL (N/3)
 </step>
 
 <step name="BENCHMARK">
-Run `vllm bench serve` 3x:
+Run `vllm bench serve` 3x in a loop:
 ```bash
-$SSH "vllm bench serve \
-  --backend openai \
-  --base-url http://$SVC_URL \
-  --model $MODEL_NAME \
-  --dataset-name random \
-  --random-input-len 128 \
-  --random-output-len 64 \
-  --num-prompts 100 \
-  --request-rate inf \
-  --percentile-metrics ttft,tpot,itl,e2el \
-  --metric-percentiles 50,90,99 \
-  --save-result \
-  --result-dir /tmp/bench-results \
-  --result-filename bench-${CURRENT_TAG}-run${RUN}.json"
+$SSH "rm -rf /tmp/bench-results && mkdir -p /tmp/bench-results"
+for RUN in 1 2 3; do
+  $SSH "vllm bench serve \
+    --backend openai \
+    --base-url http://$SVC_URL \
+    --model $MODEL_NAME \
+    --dataset-name random \
+    --random-input-len 128 \
+    --random-output-len 64 \
+    --num-prompts 100 \
+    --request-rate inf \
+    --percentile-metrics ttft,tpot,itl,e2el \
+    --metric-percentiles 50,90,99 \
+    --save-result \
+    --result-dir /tmp/bench-results \
+    --result-filename bench-${CURRENT_TAG}-run${RUN}.json"
+done
 ```
 
 Key metrics: request_throughput, output_throughput, median_ttft_ms, median_tpot_ms, p99_ttft_ms, p99_tpot_ms
 
-Transfer results locally: `scp $SSH_HOST:/tmp/bench-results/*.json $BENCH_OUTPUT_DIR/`
+Transfer results locally:
+```bash
+mkdir -p "$BENCH_OUTPUT_DIR"
+scp "$SSH_HOST:/tmp/bench-results/*.json" "$BENCH_OUTPUT_DIR/"
+```
 </step>
 
 <step name="COMPARE">

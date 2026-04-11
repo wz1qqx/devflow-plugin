@@ -5,6 +5,9 @@ current_feature: null
 feature_stage: null
 plan_progress: "0/0"
 last_activity: ""
+pipeline_stages: ""
+completed_stages: ""
+pipeline_loop_count: "0"
 ---
 
 ## Position

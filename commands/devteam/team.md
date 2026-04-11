@@ -1,7 +1,7 @@
 ---
 name: devteam:team
-description: Automated multi-agent pipeline — one command, full lifecycle with optimization feedback loops
-argument-hint: "<feature> [--max-loops N] [--skip-spec]"
+description: Automated multi-agent pipeline — configurable stages with optimization feedback loops
+argument-hint: "<feature> [--stages spec,plan,code,...] [--max-loops N]"
 allowed-tools:
   - Read
   - Write
@@ -12,7 +12,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Start the full automated pipeline for a feature using TeamCreate-based multi-agent orchestration. Runs spec → plan → code → review → build → ship → verify with automatic feedback loops.
+Start the automated pipeline for a feature. Select stages with --stages (default all). Supports checkpoint resume if interrupted.
 </objective>
 
 <execution_context>

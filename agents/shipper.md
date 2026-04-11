@@ -88,19 +88,50 @@ Poll loop until all pods ready or timeout. On timeout, fetch problem pod logs.
 </step>
 
 <step name="HEALTH_CHECK">
-If service_url configured:
+If `$SVC_URL` is configured, poll the health endpoint:
 ```bash
-# Wait for /health endpoint (up to 600s)
-# Then send first inference request to validate model loaded
+SVC_URL=$(echo "$DEPLOY_CONFIG" | jq -r '.service_url // empty')
+if [ -n "$SVC_URL" ]; then
+  TIMEOUT=600; ELAPSED=0; INTERVAL=5
+  while [ $ELAPSED -lt $TIMEOUT ]; do
+    STATUS=$($SSH "curl -sf -o /dev/null -w '%{http_code}' http://$SVC_URL/health" 2>/dev/null)
+    [ "$STATUS" = "200" ] && break
+    sleep $INTERVAL; ELAPSED=$((ELAPSED + INTERVAL))
+  done
+  if [ "$STATUS" != "200" ]; then
+    echo "HEALTH_CHECK FAILED after ${TIMEOUT}s"
+  fi
+
+  # First inference request to validate model is loaded
+  MODEL_NAME=$(echo "$DEPLOY_CONFIG" | jq -r '.model_name // empty')
+  if [ -n "$MODEL_NAME" ]; then
+    FIRST_REQ_START=$(date +%s%3N)
+    $SSH "curl -sf http://$SVC_URL/v1/completions -H 'Content-Type: application/json' \
+      -d '{\"model\": \"$MODEL_NAME\", \"prompt\": \"Hello\", \"max_tokens\": 5, \"temperature\": 0}'"
+    FIRST_REQ_END=$(date +%s%3N)
+    FIRST_REQ_LATENCY=$((FIRST_REQ_END - FIRST_REQ_START))
+    echo "First inference latency: ${FIRST_REQ_LATENCY}ms"
+  fi
+fi
 ```
 
-Report: health time, first-request latency
+Report: health check time, first-request latency.
 </step>
 
 <step name="POST_DEPLOY">
-Execute `.hooks.post_deploy` from .dev.yaml (non-blocking).
-Update `.dev.yaml` phase to `ship`.
-Checkpoint.
+1. Execute `.hooks.post_deploy` from .dev.yaml (non-blocking — warn on failure, don't abort):
+```bash
+POST_HOOK=$(echo "$INIT" | jq -r '.hooks.post_deploy // empty')
+if [ -n "$POST_HOOK" ]; then
+  $SSH "$POST_HOOK" || echo "[WARN] post_deploy hook failed"
+fi
+```
+
+2. Update state and checkpoint:
+```bash
+node "$DEVFLOW_BIN" state update phase ship
+node "$DEVFLOW_BIN" checkpoint --action "ship" --summary "Deployed $TAG to $CLUSTER_NAME/$NAMESPACE"
+```
 </step>
 
 </workflow>

@@ -1,8 +1,8 @@
 # Skill: orchestrator (TEAM)
 
 <purpose>
-Automated multi-agent pipeline orchestration. One command starts the full lifecycle:
-Spec → Plan → Code → Review → Build → Ship → Verify, with optimization feedback loops.
+Automated multi-agent pipeline orchestration. One command starts a configurable lifecycle
+with optimization feedback loops. Stages are selectable via --stages.
 Uses Claude Code native TeamCreate + Agent + TaskCreate + SendMessage mechanisms.
 </purpose>
 
@@ -27,11 +27,12 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 
 Parse from $ARGUMENTS:
 - **FEATURE**: first positional arg (optional — will prompt if not provided)
-- **--max-loops N**: max optimization iterations (default: `tuning.max_optimization_loops`, typically 3)
-- **--skip-spec**: skip spec phase if spec.md already exists
+- **--stages X,Y,Z**: comma-separated stages to run (default: all)
+  Valid stages: `spec,plan,code,review,build,ship,verify`
+- **--max-loops N**: max optimization iterations (default from tuning config)
+- **--skip-spec**: shorthand for removing `spec` from stages (backward compat)
 
 ```bash
-# Load context with feature if provided
 FEATURE="$1"
 if [ -n "$FEATURE" ]; then
   INIT=$(node "$DEVFLOW_BIN" init team --feature "$FEATURE")
@@ -44,92 +45,97 @@ WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 **Feature selection**: If `$INIT` has `feature: null` and `available_features` list, use AskUserQuestion
 to let the user pick a feature from the list. Then re-run `init team --feature $SELECTED`.
 
+**Stage selection**:
+```
+ALL_STAGES = [spec, plan, code, review, build, ship, verify]
+
+if --stages provided:
+  STAGES = parse comma-separated list, validate each against ALL_STAGES
+elif --skip-spec:
+  STAGES = ALL_STAGES minus "spec"
+else:
+  STAGES = ALL_STAGES
+```
+
 ```bash
 MAX_LOOPS=$(echo "$INIT" | jq -r '.tuning.max_optimization_loops // 3')
 ```
 
+**Checkpoint resume**: Load STATE.md for feature. If `completed_stages` is non-empty and
+`pipeline_stages` matches current `STAGES`:
+- Ask user: "Previous pipeline was interrupted after [completed]. Resume from [next]? Or restart?"
+- If resume: set STAGES to remaining uncompleted stages
+- If restart: clear `completed_stages`
+
 Gates:
 - .dev.yaml must exist
-- Feature must be defined in .dev.yaml (resolved via argument, auto-select, or user prompt)
-- If not --skip-spec and spec.md exists, ask user whether to re-spec or skip
+- Feature must be defined in .dev.yaml
+- If "spec" in STAGES and spec.md exists, ask user whether to re-spec or skip
 </step>
 
 <step name="CREATE_TEAM">
-Create the team and task list.
+Create the team and task list — only for selected stages.
 
-1. `TeamCreate(team_name: "devteam-$FEATURE", description: "Automated pipeline for $FEATURE")`
+1. `TeamCreate(team_name: "devteam-$FEATURE", description: "Pipeline for $FEATURE")`
 
-2. Create tasks with dependency chain:
-
+2. Record pipeline stages in STATE.md:
+```bash
+node "$DEVFLOW_BIN" state update pipeline_stages "$STAGES_CSV"
+node "$DEVFLOW_BIN" state update completed_stages ""
 ```
-If spec needed:
-  T1 = TaskCreate(subject: "Define requirements for $FEATURE")
 
-T2 = TaskCreate(subject: "Create implementation plan")
-  → TaskUpdate(addBlockedBy: [T1]) if T1 exists
-
-T3 = TaskCreate(subject: "Implement plan")
-  → TaskUpdate(addBlockedBy: [T2])
-
-T4 = TaskCreate(subject: "Review implementation")
-  → TaskUpdate(addBlockedBy: [T3])
-
-T5 = TaskCreate(subject: "Build Docker image")
-  → TaskUpdate(addBlockedBy: [T4])
-
-T6 = TaskCreate(subject: "Deploy to cluster")
-  → TaskUpdate(addBlockedBy: [T5])
-
-T7 = TaskCreate(subject: "Verify deployment")
-  → TaskUpdate(addBlockedBy: [T6])
+3. Create tasks dynamically — only for stages in STAGES:
 ```
+prev_task = null
+for stage in STAGES:
+  T[stage] = TaskCreate(subject: "<stage description for $FEATURE>")
+  if prev_task: TaskUpdate(T[stage], addBlockedBy: [prev_task])
+  prev_task = T[stage]
+```
+
+Stage descriptions:
+- spec: "Define requirements for $FEATURE"
+- plan: "Create implementation plan"
+- code: "Implement plan"
+- review: "Review implementation"
+- build: "Build Docker image"
+- ship: "Deploy to cluster"
+- verify: "Verify deployment"
 
 Report to user:
 ```
-devteam pipeline started for: $FEATURE
-Tasks: 7 (or 6 if --skip-spec)
+devteam pipeline for: $FEATURE
+Stages: $STAGES_CSV
 Max optimization loops: $MAX_LOOPS
 ```
 </step>
 
 <step name="RUN_SPEC">
-If spec phase needed (T1 exists):
+**Guard: skip if "spec" not in STAGES.**
 
-**IMPORTANT**: The spec agent cannot use AskUserQuestion (plugin agent limitation).
-The orchestrator must pre-collect requirements from the user BEFORE spawning the spec agent.
-
-1. Use AskUserQuestion to ask the user the 5 mandatory spec questions:
-   - Goal: What is the desired outcome?
-   - Scope: Which repos/files are involved?
-   - Constraints: API compat, performance targets, dependencies?
-   - Verification: How will we know it works?
-   - Out-of-scope: What explicitly will NOT be done?
-
-2. Compile user answers into a requirements brief.
-
-3. Spawn spec agent with the collected answers:
+1. Use AskUserQuestion to collect requirements (5 questions: goal, scope, constraints, verification, out-of-scope)
+2. Compile into requirements brief
+3. Spawn:
 ```
 Agent(
   name: "spec-agent",
   subagent_type: "devteam:spec",
   team_name: "devteam-$FEATURE",
   prompt: "Generate spec.md for feature '$FEATURE' in workspace $WORKSPACE.
-    User requirements:
-    $REQUIREMENTS_BRIEF
-    Your task ID: $T1_ID"
+    User requirements: $REQUIREMENTS_BRIEF
+    Your task ID: $T_SPEC_ID"
 )
 ```
-
-4. Wait for spec agent message via SendMessage
-5. Verify `.dev/features/$FEATURE/spec.md` exists
+4. Wait for completion. Verify `spec.md` exists.
+5. Checkpoint:
+```bash
+node "$DEVFLOW_BIN" state update completed_stages "spec"
+node "$DEVFLOW_BIN" state update feature_stage "spec"
+```
 </step>
 
 <step name="RUN_PLAN">
-Plan phase (T2).
-
-Build prompt context:
-- Base: spec path `.dev/features/$FEATURE/spec.md`
-- If this is an optimization re-plan: append vLLM-Opter's guidance
+**Guard: skip if "plan" not in STAGES.**
 
 ```
 Agent(
@@ -139,15 +145,16 @@ Agent(
   prompt: "Create implementation plan for feature '$FEATURE' in workspace $WORKSPACE.
     Spec: $WORKSPACE/.dev/features/$FEATURE/spec.md
     [OPTIMIZATION_CONTEXT if present]
-    Your task ID: $T2_ID"
+    Your task ID: $T_PLAN_ID"
 )
 ```
 
 Wait for completion. Verify `plan.md` exists.
+Checkpoint: append "plan" to `completed_stages`, update `feature_stage`.
 </step>
 
 <step name="RUN_CODE">
-Code phase (T3).
+**Guard: skip if "code" not in STAGES.**
 
 ```
 Agent(
@@ -157,16 +164,18 @@ Agent(
   prompt: "Implement the plan for feature '$FEATURE' in workspace $WORKSPACE.
     Plan: $WORKSPACE/.dev/features/$FEATURE/plan.md
     [FIX_CONTEXT if reviewer sent fix instructions]
-    Your task ID: $T3_ID"
+    Your task ID: $T_CODE_ID"
 )
 ```
 
 Wait for completion.
+Checkpoint: append "code" to `completed_stages`, update `feature_stage`.
 </step>
 
 <step name="RUN_REVIEW">
-Review phase (T4). Max 2 review cycles.
+**Guard: skip if "review" not in STAGES.**
 
+Max 2 review cycles.
 ```
 review_cycle = 0
 max_review_cycles = 2
@@ -181,24 +190,20 @@ Agent(
   prompt: "Review implementation for feature '$FEATURE' in workspace $WORKSPACE.
     Spec: $WORKSPACE/.dev/features/$FEATURE/spec.md
     Plan: $WORKSPACE/.dev/features/$FEATURE/plan.md
-    Your task ID: $T4_ID"
+    Your task ID: $T_REVIEW_ID"
 )
 ```
 
-Wait for verdict message. Parse verdict:
-- **PASS** or **PASS_WITH_WARNINGS** → proceed to BUILD
+Parse verdict:
+- **PASS** or **PASS_WITH_WARNINGS** → checkpoint "review", proceed
 - **FAIL** →
-  1. Extract remediation items from reviewer's message
-  2. If review_cycle < max_review_cycles:
-     - Create new fix task
-     - Re-spawn coder with fix instructions as FIX_CONTEXT
-     - Re-spawn reviewer
-     - review_cycle++
-  3. Else: report to user, ask for guidance via AskUserQuestion
+  1. Extract remediation items
+  2. If review_cycle < max_review_cycles: re-spawn coder with FIX_CONTEXT, then re-spawn reviewer, review_cycle++
+  3. Else: AskUserQuestion for guidance
 </step>
 
 <step name="RUN_BUILD">
-Build phase (T5).
+**Guard: skip if "build" not in STAGES.**
 
 ```
 Agent(
@@ -206,28 +211,23 @@ Agent(
   subagent_type: "devteam:builder",
   team_name: "devteam-$FEATURE",
   prompt: "Build Docker image for feature '$FEATURE' in workspace $WORKSPACE.
-    Your task ID: $T5_ID"
+    Your task ID: $T_BUILD_ID"
 )
 ```
 
-Wait for completion. Extract new image tag from builder's message.
-Store as `$NEW_TAG`.
-
-If builder reports failure: report to user via AskUserQuestion (retry / abort).
+Wait for completion. Extract `$NEW_TAG` from builder's message.
+If failure: AskUserQuestion (retry / abort).
+Checkpoint: append "build" to `completed_stages`, update `feature_stage`.
 </step>
 
 <step name="RUN_SHIP">
-Deploy phase (T6).
+**Guard: skip if "ship" not in STAGES.**
 
-**IMPORTANT**: The shipper agent cannot use AskUserQuestion. For production clusters
-(safety: prod), the orchestrator must confirm with the user BEFORE spawning the shipper.
+1. Check cluster safety from `$INIT`:
+   - `safety: prod` → AskUserQuestion to confirm before spawning shipper
+   - User declines → abort gracefully
 
-1. Check cluster safety level from `$INIT`:
-   - If `safety: prod`: use AskUserQuestion to confirm deployment with user
-     ("Deploy $NEW_TAG to production cluster $CLUSTER/$NAMESPACE? Type namespace name to confirm.")
-   - If user declines: abort pipeline gracefully
-
-2. Spawn shipper:
+2. Spawn:
 ```
 Agent(
   name: "shipper",
@@ -235,17 +235,17 @@ Agent(
   team_name: "devteam-$FEATURE",
   prompt: "Deploy image '$NEW_TAG' for feature '$FEATURE' to cluster.
     Workspace: $WORKSPACE
-    [CONFIRMED: user approved production deployment]
-    Your task ID: $T6_ID"
+    [CONFIRMED: user approved deployment]
+    Your task ID: $T_SHIP_ID"
 )
 ```
 
-Wait for deployment confirmation.
-If shipper reports failure: report to user via AskUserQuestion (retry / abort).
+If failure: AskUserQuestion (retry / abort).
+Checkpoint: append "ship" to `completed_stages`, update `feature_stage`.
 </step>
 
 <step name="RUN_VERIFY">
-Verify phase (T7).
+**Guard: skip if "verify" not in STAGES.**
 
 ```
 Agent(
@@ -254,17 +254,17 @@ Agent(
   team_name: "devteam-$FEATURE",
   prompt: "Verify deployment for feature '$FEATURE'. Run smoke checks and benchmarks.
     Workspace: $WORKSPACE
-    Your task ID: $T7_ID"
+    Your task ID: $T_VERIFY_ID"
 )
 ```
 
-Wait for verdict:
-- **PASS** → pipeline complete, go to CLEANUP
+Verdict:
+- **PASS** → checkpoint "verify", go to CLEANUP
 - **FAIL** → go to OPTIMIZATION_LOOP
 </step>
 
 <step name="OPTIMIZATION_LOOP">
-Triggered when verifier reports FAIL (performance regression).
+Triggered when verifier reports FAIL. Only runs if "verify" is in STAGES.
 
 ```
 loop_count = 0
@@ -272,34 +272,36 @@ loop_count = 0
 
 While verifier FAIL and loop_count < MAX_LOOPS:
 
-1. **Spawn vLLM-Opter**:
+1. Checkpoint: `node "$DEVFLOW_BIN" state update pipeline_loop_count "$loop_count"`
+
+2. Spawn vLLM-Opter:
 ```
 Agent(
   name: "vllm-opter",
   subagent_type: "devteam:vllm-opter",
   team_name: "devteam-$FEATURE",
   prompt: "Analyze performance regression for '$FEATURE'.
-    Regression report: <verifier_metrics_from_message>
+    Regression report: <verifier_metrics>
     Workspace: $WORKSPACE
     Your task ID: $OPT_TASK_ID"
 )
 ```
 
-2. Wait for optimization guidance
+3. Wait for optimization guidance
 
-3. **Re-run pipeline with optimization context**:
-   - RUN_PLAN with optimization guidance as OPTIMIZATION_CONTEXT
+4. Re-run sub-pipeline (only stages that make sense for optimization):
+   - RUN_PLAN (with OPTIMIZATION_CONTEXT)
    - RUN_CODE
    - RUN_REVIEW
    - RUN_BUILD
    - RUN_SHIP
    - RUN_VERIFY
 
-4. `loop_count++`
+5. `loop_count++`
 
-If loop_count >= MAX_LOOPS and still FAIL:
+If exhausted:
 ```
-Report to user via AskUserQuestion:
+AskUserQuestion:
   - "Continue with N more loops"
   - "Accept current performance"
   - "Abort pipeline"
@@ -312,6 +314,7 @@ Pipeline complete.
 1. Update phase:
 ```bash
 node "$DEVFLOW_BIN" state update phase completed
+node "$DEVFLOW_BIN" state update completed_stages "$ALL_COMPLETED_CSV"
 ```
 
 2. Checkpoint:
@@ -319,17 +322,17 @@ node "$DEVFLOW_BIN" state update phase completed
 node "$DEVFLOW_BIN" checkpoint --action "team-complete" --summary "Pipeline complete for $FEATURE"
 ```
 
-3. `TeamDelete` — clean up team resources
+3. `TeamDelete`
 
-4. Report final summary:
+4. Report summary:
 ```
 Pipeline Complete: $FEATURE
+  Stages: $STAGES_CSV
   Tasks completed: N
-  Image: $NEW_TAG
-  Cluster: $CLUSTER/$NAMESPACE
-  Verification: PASS
+  [Image: $NEW_TAG]           # if build was in STAGES
+  [Cluster: $CLUSTER/$NS]    # if ship was in STAGES
+  [Verification: PASS]        # if verify was in STAGES
   Optimization loops: $loop_count
-  Duration: ~Xm
 ```
 </step>
 
@@ -345,11 +348,12 @@ Pipeline Complete: $FEATURE
 | "One more optimization loop will fix it" | 3 loops is the safety valve. Ask the human. |
 | "I'll deploy without GPU checks" | GPU env issues cause silent correctness bugs and OOMs |
 | "Use general-purpose agent instead of native type" | Native subagent_type enforces tool restrictions. General-purpose has no guardrails. |
+| "Run all stages even though user said --stages" | Respect the user's selection. They know their workflow. |
 
 **Red Flags:**
-- Skipping any pipeline phase
+- Running stages not in STAGES list
 - Using `subagent_type: "general-purpose"` instead of `"devteam:XXX"`
-- Deploying without verification
+- Skipping checkpoint writes between stages
 - Ignoring reviewer FAIL verdict
 - Optimization loop exceeding max without user consent
 - kubectl commands missing `-n <namespace>`
