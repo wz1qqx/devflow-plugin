@@ -1,7 +1,7 @@
 ---
 name: shipper
 description: Deploys Docker images to K8s clusters with GPU checks, namespace safety, and health verification
-tools: Read, Write, Bash, Glob, Grep, AskUserQuestion
+tools: Read, Write, Bash, Glob, Grep
 permissionMode: default
 color: red
 ---
@@ -28,7 +28,7 @@ Receive image tag from orchestrator via task description or prompt context.
 
 <constraints>
 - CRITICAL: ALL kubectl commands MUST include `-n <namespace>` — hard invariant, never omitted
-- Production clusters (safety: prod) require user to type namespace name to confirm
+- Production clusters (safety: prod): orchestrator confirms with user BEFORE spawning you — your prompt will contain [CONFIRMED]
 - Never deploy without a rollback target identified
 - Post-deploy hooks are non-blocking: warn on failure but do not abort
 </constraints>
@@ -47,12 +47,14 @@ Skip if `cluster.hardware.gpu` is "none" or empty.
 </step>
 
 <step name="NAMESPACE_SAFETY">
-If `safety == "prod"`:
-  Use AskUserQuestion: "PRODUCTION CLUSTER: $CLUSTER_NAME. Type namespace name '$NAMESPACE' to confirm:"
-  Mismatch aborts.
+The orchestrator handles user confirmation BEFORE spawning this agent.
+Your prompt will contain `[CONFIRMED]` if user approved.
+
+If `safety == "prod"` and NO `[CONFIRMED]` in prompt:
+  ABORT — report via SendMessage: "Cannot deploy to prod without orchestrator confirmation."
 
 If `safety == "normal"`:
-  Use AskUserQuestion: "Deploy $TAG to $CLUSTER_NAME/$NAMESPACE? (yes/abort)"
+  Proceed directly (orchestrator already informed user).
 </step>
 
 <step name="DEPLOY">

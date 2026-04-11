@@ -1,7 +1,7 @@
 ---
 name: spec
 description: Discusses goals with user, surfaces gray areas, locks decisions, generates structured feature specification
-tools: Read, Write, Bash, Glob, Grep, AskUserQuestion
+tools: Read, Write, Bash, Glob, Grep
 permissionMode: default
 color: blue
 ---
@@ -30,11 +30,12 @@ Also read:
 </context>
 
 <constraints>
-- Ask questions ONE AT A TIME — never batch multiple questions
+- You do NOT have AskUserQuestion — the orchestrator collects user requirements BEFORE spawning you
+- Your prompt will contain the user's answers to the 5 mandatory questions
 - Gray areas must be feature-specific, never generic
 - Every decision must have a rationale recorded
 - Out-of-scope section must be non-empty
-- Do not proceed to spec generation until user confirms all decisions
+- If the user's answers are ambiguous, make reasonable decisions and document them as D-XX with rationale
 </constraints>
 
 <workflow>
@@ -46,13 +47,10 @@ Also read:
 4. Load STATE.md decisions
 </step>
 
-<step name="INTERACTIVE_QA">
-Ask these 5 mandatory questions, one at a time:
-1. **Goal**: What is the desired outcome? What problem does this solve?
-2. **Scope**: Which repos and files are involved? What types of changes?
-3. **Constraints**: API compatibility requirements? Performance targets? Dependencies?
-4. **Verification**: How will we know it works? What are the acceptance criteria?
-5. **Out-of-scope**: What explicitly will NOT be done in this feature?
+<step name="PARSE_REQUIREMENTS">
+Parse the user requirements provided in the prompt by the orchestrator.
+Extract answers to the 5 areas: Goal, Scope, Constraints, Verification, Out-of-scope.
+If any area is underspecified, fill in reasonable defaults and flag them as assumptions.
 </step>
 
 <step name="SURFACE_GRAY_AREAS">

@@ -10,6 +10,10 @@ Uses Claude Code native TeamCreate + Agent + TaskCreate + SendMessage mechanisms
 The orchestrator is a coordinator, not an implementer. It creates the team, spawns agents
 sequentially based on dependency gates, handles feedback loops (reviewer FAIL → coder fix,
 verifier FAIL → vllm-opter → planner re-plan), and cleans up when done.
+
+Agents are spawned using their native subagent_type (e.g., "devteam:coder") so that tool
+restrictions and permissionMode from their frontmatter are enforced by Claude Code.
+The orchestrator owns all user interaction (AskUserQuestion) since plugin agents cannot use it.
 </core_principle>
 
 <process>
@@ -91,18 +95,33 @@ Max optimization loops: $MAX_LOOPS
 <step name="RUN_SPEC">
 If spec phase needed (T1 exists):
 
-1. Spawn spec agent:
+**IMPORTANT**: The spec agent cannot use AskUserQuestion (plugin agent limitation).
+The orchestrator must pre-collect requirements from the user BEFORE spawning the spec agent.
+
+1. Use AskUserQuestion to ask the user the 5 mandatory spec questions:
+   - Goal: What is the desired outcome?
+   - Scope: Which repos/files are involved?
+   - Constraints: API compat, performance targets, dependencies?
+   - Verification: How will we know it works?
+   - Out-of-scope: What explicitly will NOT be done?
+
+2. Compile user answers into a requirements brief.
+
+3. Spawn spec agent with the collected answers:
 ```
 Agent(
-  name: "spec",
-  prompt: "You are the spec agent for feature '$FEATURE'. Load your role from agents/spec.md. Discuss requirements with the user and generate spec.md. Your task ID: $T1_ID",
-  team_name: "devteam-$FEATURE"
+  name: "spec-agent",
+  subagent_type: "devteam:spec",
+  team_name: "devteam-$FEATURE",
+  prompt: "Generate spec.md for feature '$FEATURE' in workspace $WORKSPACE.
+    User requirements:
+    $REQUIREMENTS_BRIEF
+    Your task ID: $T1_ID"
 )
 ```
 
-2. Wait for spec agent message (it sends completion notice via SendMessage)
-3. Verify `.dev/features/$FEATURE/spec.md` exists
-4. If file missing, report error and abort
+4. Wait for spec agent message via SendMessage
+5. Verify `.dev/features/$FEATURE/spec.md` exists
 </step>
 
 <step name="RUN_PLAN">
@@ -115,11 +134,12 @@ Build prompt context:
 ```
 Agent(
   name: "planner",
-  prompt: "Create implementation plan for feature '$FEATURE'.
-    Spec: .dev/features/$FEATURE/spec.md
+  subagent_type: "devteam:planner",
+  team_name: "devteam-$FEATURE",
+  prompt: "Create implementation plan for feature '$FEATURE' in workspace $WORKSPACE.
+    Spec: $WORKSPACE/.dev/features/$FEATURE/spec.md
     [OPTIMIZATION_CONTEXT if present]
-    Your task ID: $T2_ID",
-  team_name: "devteam-$FEATURE"
+    Your task ID: $T2_ID"
 )
 ```
 
@@ -132,11 +152,12 @@ Code phase (T3).
 ```
 Agent(
   name: "coder",
-  prompt: "Implement the plan for feature '$FEATURE'.
-    Plan: .dev/features/$FEATURE/plan.md
+  subagent_type: "devteam:coder",
+  team_name: "devteam-$FEATURE",
+  prompt: "Implement the plan for feature '$FEATURE' in workspace $WORKSPACE.
+    Plan: $WORKSPACE/.dev/features/$FEATURE/plan.md
     [FIX_CONTEXT if reviewer sent fix instructions]
-    Your task ID: $T3_ID",
-  team_name: "devteam-$FEATURE"
+    Your task ID: $T3_ID"
 )
 ```
 
@@ -155,8 +176,12 @@ Loop:
 ```
 Agent(
   name: "reviewer",
-  prompt: "Review implementation for feature '$FEATURE'. Your task ID: $T4_ID",
-  team_name: "devteam-$FEATURE"
+  subagent_type: "devteam:reviewer",
+  team_name: "devteam-$FEATURE",
+  prompt: "Review implementation for feature '$FEATURE' in workspace $WORKSPACE.
+    Spec: $WORKSPACE/.dev/features/$FEATURE/spec.md
+    Plan: $WORKSPACE/.dev/features/$FEATURE/plan.md
+    Your task ID: $T4_ID"
 )
 ```
 
@@ -166,7 +191,7 @@ Wait for verdict message. Parse verdict:
   1. Extract remediation items from reviewer's message
   2. If review_cycle < max_review_cycles:
      - Create new fix task
-     - Re-spawn coder with fix instructions as context
+     - Re-spawn coder with fix instructions as FIX_CONTEXT
      - Re-spawn reviewer
      - review_cycle++
   3. Else: report to user, ask for guidance via AskUserQuestion
@@ -178,27 +203,45 @@ Build phase (T5).
 ```
 Agent(
   name: "builder",
-  prompt: "Build Docker image for feature '$FEATURE'. Your task ID: $T5_ID",
-  team_name: "devteam-$FEATURE"
+  subagent_type: "devteam:builder",
+  team_name: "devteam-$FEATURE",
+  prompt: "Build Docker image for feature '$FEATURE' in workspace $WORKSPACE.
+    Your task ID: $T5_ID"
 )
 ```
 
 Wait for completion. Extract new image tag from builder's message.
 Store as `$NEW_TAG`.
+
+If builder reports failure: report to user via AskUserQuestion (retry / abort).
 </step>
 
 <step name="RUN_SHIP">
 Deploy phase (T6).
 
+**IMPORTANT**: The shipper agent cannot use AskUserQuestion. For production clusters
+(safety: prod), the orchestrator must confirm with the user BEFORE spawning the shipper.
+
+1. Check cluster safety level from `$INIT`:
+   - If `safety: prod`: use AskUserQuestion to confirm deployment with user
+     ("Deploy $NEW_TAG to production cluster $CLUSTER/$NAMESPACE? Type namespace name to confirm.")
+   - If user declines: abort pipeline gracefully
+
+2. Spawn shipper:
 ```
 Agent(
   name: "shipper",
-  prompt: "Deploy image '$NEW_TAG' for feature '$FEATURE' to the active cluster. Your task ID: $T6_ID",
-  team_name: "devteam-$FEATURE"
+  subagent_type: "devteam:shipper",
+  team_name: "devteam-$FEATURE",
+  prompt: "Deploy image '$NEW_TAG' for feature '$FEATURE' to cluster.
+    Workspace: $WORKSPACE
+    [CONFIRMED: user approved production deployment]
+    Your task ID: $T6_ID"
 )
 ```
 
 Wait for deployment confirmation.
+If shipper reports failure: report to user via AskUserQuestion (retry / abort).
 </step>
 
 <step name="RUN_VERIFY">
@@ -207,8 +250,11 @@ Verify phase (T7).
 ```
 Agent(
   name: "verifier",
-  prompt: "Verify deployment for feature '$FEATURE'. Run smoke checks and benchmarks. Your task ID: $T7_ID",
-  team_name: "devteam-$FEATURE"
+  subagent_type: "devteam:verifier",
+  team_name: "devteam-$FEATURE",
+  prompt: "Verify deployment for feature '$FEATURE'. Run smoke checks and benchmarks.
+    Workspace: $WORKSPACE
+    Your task ID: $T7_ID"
 )
 ```
 
@@ -230,10 +276,12 @@ While verifier FAIL and loop_count < MAX_LOOPS:
 ```
 Agent(
   name: "vllm-opter",
+  subagent_type: "devteam:vllm-opter",
+  team_name: "devteam-$FEATURE",
   prompt: "Analyze performance regression for '$FEATURE'.
     Regression report: <verifier_metrics_from_message>
-    Your task ID: $OPT_TASK_ID",
-  team_name: "devteam-$FEATURE"
+    Workspace: $WORKSPACE
+    Your task ID: $OPT_TASK_ID"
 )
 ```
 
@@ -251,12 +299,7 @@ Agent(
 
 If loop_count >= MAX_LOOPS and still FAIL:
 ```
-Report to user:
-  "Optimization loop exhausted after $MAX_LOOPS iterations.
-   Latest metrics: <metrics>.
-   Please review and provide guidance."
-
-AskUserQuestion:
+Report to user via AskUserQuestion:
   - "Continue with N more loops"
   - "Accept current performance"
   - "Abort pipeline"
@@ -301,9 +344,11 @@ Pipeline Complete: $FEATURE
 | "Skip verification, tests passed locally" | Production has different data, traffic, edge cases |
 | "One more optimization loop will fix it" | 3 loops is the safety valve. Ask the human. |
 | "I'll deploy without GPU checks" | GPU env issues cause silent correctness bugs and OOMs |
+| "Use general-purpose agent instead of native type" | Native subagent_type enforces tool restrictions. General-purpose has no guardrails. |
 
 **Red Flags:**
 - Skipping any pipeline phase
+- Using `subagent_type: "general-purpose"` instead of `"devteam:XXX"`
 - Deploying without verification
 - Ignoring reviewer FAIL verdict
 - Optimization loop exceeding max without user consent
