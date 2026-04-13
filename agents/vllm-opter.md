@@ -23,6 +23,19 @@ SVC_URL=$(echo "$INIT" | jq -r '.deploy.service_url // empty')
 MODEL_NAME=$(echo "$INIT" | jq -r '.deploy.model_name // empty')
 CURRENT_TAG=$(echo "$INIT" | jq -r '.feature.current_tag')
 BENCH_OUTPUT_DIR=$(echo "$INIT" | jq -r '.benchmark.output_dir // "bench-results"')
+# Profile config
+PROFILE_NUM_PROMPTS=$(echo "$INIT" | jq -r '.verify.profile.num_prompts // 10')
+PROFILE_REQUEST_RATE=$(echo "$INIT" | jq -r '.verify.profile.request_rate // 4')
+PROFILE_INPUT_LEN=$(echo "$INIT" | jq -r '.verify.profile.input_len // 128')
+PROFILE_OUTPUT_LEN=$(echo "$INIT" | jq -r '.verify.profile.output_len // 64')
+PROFILE_TRACE_DIR=$(echo "$INIT" | jq -r ".verify.profile.trace_dir // \"/tmp/vllm_profile_${CURRENT_TAG}\"")
+PROFILE_ANALYZERS=$(echo "$INIT" | jq -c '.verify.profile.analyzers // []')
+# Kernel config
+KERNEL_BATCH_SIZE=$(echo "$INIT" | jq -r '.verify.kernel.batch_size // 1')
+KERNEL_INPUT_LEN=$(echo "$INIT" | jq -r '.verify.kernel.input_len // 128')
+KERNEL_OUTPUT_LEN=$(echo "$INIT" | jq -r '.verify.kernel.output_len // 32')
+KERNEL_NUM_ITERS=$(echo "$INIT" | jq -r '.verify.kernel.num_iters // 3')
+NSYS_PATH=$(echo "$INIT" | jq -r '.verify.kernel.nsys_path // empty')
 ```
 
 Receive verifier's regression report (which metrics regressed, by how much) via prompt context.
@@ -47,14 +60,16 @@ Receive verifier's regression report (which metrics regressed, by how much) via 
 Torch profiler via vLLM HTTP API:
 
 ```bash
+$SSH "mkdir -p $PROFILE_TRACE_DIR"
+
 # Start profiler
 $SSH "curl -sf -X POST http://$SVC_URL/start_profile"
 
-# Send 10 requests (NOT vllm bench serve — tokenizer init delay wastes profiler window)
-for i in $(seq 1 10); do
+# Send $PROFILE_NUM_PROMPTS requests (NOT vllm bench serve — tokenizer init delay wastes profiler window)
+for i in $(seq 1 $PROFILE_NUM_PROMPTS); do
   $SSH "curl -sf http://$SVC_URL/v1/completions \
     -H 'Content-Type: application/json' \
-    -d '{\"model\": \"$MODEL_NAME\", \"prompt\": \"Explain the concept of\", \"max_tokens\": 64, \"temperature\": 0}'" > /dev/null
+    -d '{\"model\": \"$MODEL_NAME\", \"prompt\": \"Explain the concept of\", \"max_tokens\": $PROFILE_OUTPUT_LEN, \"temperature\": 0}'" > /dev/null
 done
 
 # Stop profiler
@@ -74,6 +89,18 @@ Analyze `profiler_out_0.txt` — classify top kernels into 9 categories:
 | memory | Memcpy, Memset |
 | other | everything else |
 
+**Run custom analyzers** (from `verify.profile.analyzers`):
+```bash
+echo "$PROFILE_ANALYZERS" | jq -c '.[]' | while read ANALYZER; do
+  NAME=$(echo "$ANALYZER" | jq -r '.name')
+  CMD=$(echo "$ANALYZER" | jq -r '.command' \
+    | sed "s|{trace}|$PROFILE_TRACE_DIR|g" \
+    | sed "s|{output_dir}|$BENCH_OUTPUT_DIR|g")
+  echo "Running analyzer: $NAME"
+  $SSH "$CMD" || echo "[WARN] analyzer '$NAME' failed"
+done
+```
+
 If profiler endpoint unavailable (HTTP != 200), fall back to KERNEL step.
 </step>
 
@@ -81,10 +108,20 @@ If profiler endpoint unavailable (HTTP != 200), fall back to KERNEL step.
 Nsight Systems profiling (alternative to torch profiler):
 
 ```bash
-NSYS_PATH=$($SSH "which nsys 2>/dev/null || ls /usr/local/cuda*/bin/nsys 2>/dev/null | tail -1")
-$SSH "CUDA_VISIBLE_DEVICES=0 $NSYS_PATH profile -t cuda -o /tmp/vllm_nsys_${CURRENT_TAG} -f true \
-  vllm bench latency --model $MODEL_NAME --batch-size 1 --input-len 128 --output-len 32 \
-  --num-iters 3 --enforce-eager --load-format dummy"
+# Resolve nsys binary: prefer config override, then auto-detect
+if [ -n "$NSYS_PATH" ]; then
+  NSYS="$NSYS_PATH"
+else
+  NSYS=$($SSH "which nsys 2>/dev/null || ls /usr/local/cuda*/bin/nsys 2>/dev/null | tail -1")
+fi
+
+$SSH "CUDA_VISIBLE_DEVICES=0 $NSYS profile -t cuda -o /tmp/vllm_nsys_${CURRENT_TAG} -f true \
+  vllm bench latency --model $MODEL_NAME \
+  --batch-size $KERNEL_BATCH_SIZE \
+  --input-len $KERNEL_INPUT_LEN \
+  --output-len $KERNEL_OUTPUT_LEN \
+  --num-iters $KERNEL_NUM_ITERS \
+  --enforce-eager --load-format dummy"
 ```
 
 Extract kernel CSV, classify into 9 categories. Flag:

@@ -61,6 +61,7 @@ defaults:
     <agent-name>: <model>           # e.g., my-custom-auditor: opus
   tuning:                           # Optional tunable parameters (all have defaults)
     regression_threshold: 20        # Benchmark regression alert threshold (%)
+    max_optimization_loops: 3       # Max vLLM-Opter → re-plan → re-verify iterations
     max_task_retries: 2             # code max retries per failed task
     deploy_timeout: 300             # Pod readiness timeout (seconds)
     deploy_poll_interval: 15        # Pod status poll interval (seconds)

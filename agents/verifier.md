@@ -36,6 +36,12 @@ API_KEY=$(echo "$INIT" | jq -r '.benchmark.api_key // empty')
 FRONTEND_SVC=$(echo "$INIT" | jq -r '.benchmark.frontend_svc_label // empty')
 ARRIVAL_RATE=$(echo "$INIT" | jq -r '.benchmark.standard.arrival_rate // empty')
 TOTAL_SESSIONS=$(echo "$INIT" | jq -r '.benchmark.standard.total_sessions // empty')
+# Verify config
+SMOKE_CMD=$(echo "$INIT" | jq -r '.verify.smoke_cmd // empty')
+SMOKE_COUNT=$(echo "$INIT" | jq -r '.verify.smoke_count // 5')
+WARMUP_COUNT=$(echo "$INIT" | jq -r '.verify.warmup_count // 3')
+POD_SELECTOR=$(echo "$INIT" | jq -r '.verify.pod_selector // "app=$DGD_NAME"')
+POST_VERIFY_HOOK=$(echo "$INIT" | jq -r '.hooks.post_verify // empty')
 ```
 </context>
 
@@ -49,58 +55,59 @@ TOTAL_SESSIONS=$(echo "$INIT" | jq -r '.benchmark.standard.total_sessions // emp
 <workflow>
 
 <step name="SMOKE_CHECK">
-3-check pass/fail:
-1. Health endpoint returns 200:
-   ```bash
-   $SSH "curl -sf -o /dev/null -w '%{http_code}' http://$SVC_URL/health"
-   ```
-2. Core request returns valid response:
-   ```bash
-   $SSH "curl -sf http://$SVC_URL/v1/completions -H 'Content-Type: application/json' -d '{\"model\": \"$MODEL_NAME\", \"prompt\": \"Hello\", \"max_tokens\": 5, \"temperature\": 0}'"
-   ```
-3. No new error types in logs:
-   ```bash
-   $SSH "kubectl logs -l app=$DGD_NAME -n $NAMESPACE --tail=100 | grep -i 'error\|fatal' | head -10"
-   ```
+Run `$SMOKE_COUNT` smoke checks (warmup `$WARMUP_COUNT` first, then validate).
 
-Result: PASS (3/3) or FAIL (N/3)
+**If `$SMOKE_CMD` is configured**: run it directly — it's the project's canonical smoke check.
+```bash
+# Warmup
+for i in $(seq 1 $WARMUP_COUNT); do
+  $SSH "$SMOKE_CMD" > /dev/null
+done
+# Test
+PASS_COUNT=0
+for i in $(seq 1 $SMOKE_COUNT); do
+  $SSH "$SMOKE_CMD" && PASS_COUNT=$((PASS_COUNT + 1))
+done
+```
+
+**If `$SMOKE_CMD` is empty**: fall back to generic health + inference check:
+```bash
+# 1. Health endpoint
+$SSH "curl -sf -o /dev/null -w '%{http_code}' http://$SVC_URL/health"
+# 2. Core inference request
+$SSH "curl -sf http://$SVC_URL/v1/completions -H 'Content-Type: application/json' \
+  -d '{\"model\": \"$MODEL_NAME\", \"prompt\": \"Hello\", \"max_tokens\": 5, \"temperature\": 0}'"
+```
+
+**Log check** (always):
+```bash
+$SSH "kubectl logs -l $POD_SELECTOR -n $NAMESPACE --tail=100 | grep -i 'error\|fatal' | head -10"
+```
+
+Result: PASS ($SMOKE_COUNT/$SMOKE_COUNT) or FAIL
 </step>
 
 <step name="BENCHMARK">
 Construct benchmark command from `.dev.yaml` config, then run 3x.
 
-**Command construction** — two modes:
-
-**Mode A: mtb_cmd configured** (preferred — uses project-specific benchmark tool):
+**Gate**: `benchmark.mtb_cmd` must be configured — ABORT if missing:
 ```bash
-if [ -n "$MTB_CMD" ]; then
-  # Substitute template variables from benchmark.standard.* into mtb_cmd
-  BASE_CMD=$(echo "$MTB_CMD" \
-    | sed "s|{frontend_svc_label}|$FRONTEND_SVC|g" \
-    | sed "s|{svc_url}|$SVC_URL|g" \
-    | sed "s|{arrival_rate}|$ARRIVAL_RATE|g" \
-    | sed "s|{total_sessions}|$TOTAL_SESSIONS|g" \
-    | sed "s|{dataset_path}|$DATASET_PATH|g" \
-    | sed "s|{api_key}|$API_KEY|g" \
-    | sed "s|{output_dir}|/tmp/bench-results|g")
+if [ -z "$MTB_CMD" ]; then
+  echo "ERROR: benchmark.mtb_cmd not set in .dev.yaml. Cannot run benchmark."
+  exit 1
 fi
 ```
 
-**Mode B: mtb_cmd not set** (fallback — generic vllm bench serve):
+**Command construction** — substitute template variables from config into `mtb_cmd`:
 ```bash
-BASE_CMD="vllm bench serve \
-  --backend openai \
-  --base-url http://$SVC_URL \
-  --model $MODEL_NAME \
-  --dataset-name random \
-  --random-input-len 128 \
-  --random-output-len 64 \
-  --num-prompts 100 \
-  --request-rate inf \
-  --percentile-metrics ttft,tpot,itl,e2el \
-  --metric-percentiles 50,90,99 \
-  --save-result \
-  --result-dir /tmp/bench-results"
+BASE_CMD=$(echo "$MTB_CMD" \
+  | sed "s|{frontend_svc_label}|$FRONTEND_SVC|g" \
+  | sed "s|{svc_url}|$SVC_URL|g" \
+  | sed "s|{arrival_rate}|$ARRIVAL_RATE|g" \
+  | sed "s|{total_sessions}|$TOTAL_SESSIONS|g" \
+  | sed "s|{dataset_path}|$DATASET_PATH|g" \
+  | sed "s|{api_key}|$API_KEY|g" \
+  | sed "s|{output_dir}|$BENCH_OUTPUT_DIR|g")
 ```
 
 **Run 3x**:
@@ -148,8 +155,17 @@ On FAIL, include structured regression data:
     {"metric": "tpot_p50", "previous": 11.2, "current": 14.8, "delta_pct": 32.1},
     ...
   ],
-  "threshold": 20
+  "threshold": $REGRESSION_THRESHOLD
 }
+```
+</step>
+
+<step name="POST_VERIFY">
+Execute `hooks.post_verify` if configured (non-blocking — warn on failure, don't abort):
+```bash
+if [ -n "$POST_VERIFY_HOOK" ]; then
+  $SSH "$POST_VERIFY_HOOK" || echo "[WARN] post_verify hook failed"
+fi
 ```
 </step>
 

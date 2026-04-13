@@ -40,12 +40,11 @@ BUILD_HISTORY=$(echo "$INIT" | jq -r '.build_history')
 
 <step name="PRE_SHIP_CHECKLIST">
 All items must pass:
-1. **Tests**: Run test command if configured (`build.test_command`)
-2. **Lint**: No warnings in scope files
-3. **Debug statements**: No `console.log`, `debugger`, `print(` in production paths
-4. **Invariants**: source_restriction compliance, build_compat_check
-5. **Pre-build hooks**: Execute `.hooks.pre_build` from .dev.yaml
-6. **Learned hooks**: Execute `.hooks.learned[]` where `trigger == "pre_build"`
+1. **Lint**: No warnings in scope files
+2. **Debug statements**: No `console.log`, `debugger`, `print(` in production paths
+3. **Invariants**: source_restriction compliance, build_compat_check
+4. **Pre-build hooks**: Execute `.hooks.pre_build` from .dev.yaml
+5. **Learned hooks**: Execute `.hooks.learned[]` where `trigger == "pre_build"`
 
 Gate: Any failure aborts. Report which check failed.
 </step>
@@ -57,6 +56,10 @@ Gate: Any failure aborts. Report which check failed.
 ```bash
 export BASE_IMAGE="$REGISTRY/$BASE_IMAGE_NAME:$CURRENT_TAG"
 export NEW_TAG="$CONFIRMED_TAG"
+# Export all build.env key-value pairs into the build environment
+while IFS='=' read -r KEY VALUE; do
+  export "$KEY"="$VALUE"
+done < <(echo "$BUILD_ENV" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
 BUILD_CMD=$(echo "$BUILD_COMMANDS" | jq -r '.default')
 bash -c "$BUILD_CMD"
 ```

@@ -21,6 +21,11 @@ NAMESPACE=$(echo "$INIT" | jq -r '.cluster.namespace')
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
 SAFETY=$(echo "$INIT" | jq -r '.cluster.safety')
 DEPLOY_CONFIG=$(echo "$INIT" | jq -r '.deploy')
+DEPLOY_TIMEOUT=$(echo "$INIT" | jq -r '.tuning.deploy_timeout // 300')
+DEPLOY_POLL_INTERVAL=$(echo "$INIT" | jq -r '.tuning.deploy_poll_interval // 15')
+GPU_TYPE=$(echo "$INIT" | jq -r '.cluster.hardware.gpu // empty')
+MIN_DRIVER=$(echo "$INIT" | jq -r '.cluster.hardware.min_driver // empty')
+EXPECTED_TP=$(echo "$INIT" | jq -r '.cluster.hardware.expected_tp // 1')
 ```
 
 Receive image tag from orchestrator via task description or prompt context.
@@ -36,14 +41,31 @@ Receive image tag from orchestrator via task description or prompt context.
 <workflow>
 
 <step name="GPU_ENV_CHECK">
-Skip if `cluster.hardware.gpu` is "none" or empty.
+Skip if `$GPU_TYPE` is empty or "none".
 
-1. GPU status: `$SSH "nvidia-smi --query-gpu=index,name,memory.used,memory.total,temperature.gpu,utilization.gpu --format=csv,noheader,nounits"`
-   - Temperature >85C: WARN (thermal throttling)
-   - Memory >90%: WARN (another workload may be running)
-2. Free GPU count vs `expected_tp`: ABORT if insufficient
-3. Stale processes: `$SSH "pgrep -af 'vllm serve|vllm.entrypoints'"` — offer cleanup
-4. Model path verification if configured
+```bash
+# GPU status
+$SSH "nvidia-smi --query-gpu=index,name,driver_version,memory.used,memory.total,temperature.gpu,utilization.gpu --format=csv,noheader,nounits"
+```
+- Temperature >85C: WARN (thermal throttling)
+- Memory >90%: WARN (another workload running)
+
+**Driver check** (if `$MIN_DRIVER` set):
+```bash
+DRIVER=$($SSH "nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1")
+# Compare DRIVER >= MIN_DRIVER — ABORT if below minimum
+```
+
+**Free GPU count check**:
+```bash
+FREE_GPUS=$($SSH "nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | awk '$1 < 500'| wc -l")
+[ "$FREE_GPUS" -lt "$EXPECTED_TP" ] && echo "ABORT: need $EXPECTED_TP free GPUs, only $FREE_GPUS available" && exit 1
+```
+
+**Stale processes**:
+```bash
+$SSH "pgrep -af 'vllm serve|vllm.entrypoints'"  # offer cleanup if found
+```
 </step>
 
 <step name="NAMESPACE_SAFETY">
@@ -80,11 +102,11 @@ $SSH kubectl apply -f "$YAML_FILE" -n "$NAMESPACE"
 
 <step name="WAIT_PODS">
 ```bash
-TIMEOUT=$(echo "$INIT" | jq -r '.tuning.deploy_timeout // 300')
-INTERVAL=$(echo "$INIT" | jq -r '.tuning.deploy_poll_interval // 15')
+# $DEPLOY_TIMEOUT and $DEPLOY_POLL_INTERVAL from context
+ELAPSED=0
 ```
 
-Poll loop until all pods ready or timeout. On timeout, fetch problem pod logs.
+Poll loop until all pods ready or `$DEPLOY_TIMEOUT`. On timeout, fetch problem pod logs.
 </step>
 
 <step name="HEALTH_CHECK">
@@ -92,14 +114,14 @@ If `$SVC_URL` is configured, poll the health endpoint:
 ```bash
 SVC_URL=$(echo "$DEPLOY_CONFIG" | jq -r '.service_url // empty')
 if [ -n "$SVC_URL" ]; then
-  TIMEOUT=600; ELAPSED=0; INTERVAL=5
-  while [ $ELAPSED -lt $TIMEOUT ]; do
+  ELAPSED=0
+  while [ $ELAPSED -lt $DEPLOY_TIMEOUT ]; do
     STATUS=$($SSH "curl -sf -o /dev/null -w '%{http_code}' http://$SVC_URL/health" 2>/dev/null)
     [ "$STATUS" = "200" ] && break
-    sleep $INTERVAL; ELAPSED=$((ELAPSED + INTERVAL))
+    sleep $DEPLOY_POLL_INTERVAL; ELAPSED=$((ELAPSED + DEPLOY_POLL_INTERVAL))
   done
   if [ "$STATUS" != "200" ]; then
-    echo "HEALTH_CHECK FAILED after ${TIMEOUT}s"
+    echo "HEALTH_CHECK FAILED after ${DEPLOY_TIMEOUT}s"
   fi
 
   # First inference request to validate model is loaded
