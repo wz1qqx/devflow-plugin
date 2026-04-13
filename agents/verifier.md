@@ -28,6 +28,14 @@ BENCH_OUTPUT_DIR=$(echo "$INIT" | jq -r '.benchmark.output_dir // "bench-results
 REGRESSION_THRESHOLD=$(echo "$INIT" | jq -r '.tuning.regression_threshold // 20')
 CURRENT_TAG=$(echo "$INIT" | jq -r '.feature.current_tag')
 PREV_TAG=$(echo "$INIT" | jq -r '.build_history[-2].tag // empty')
+# MTB benchmark config
+MTB_CMD=$(echo "$INIT" | jq -r '.benchmark.mtb_cmd // empty')
+MTB_DIR=$(echo "$INIT" | jq -r '.benchmark.mtb_dir // "."')
+DATASET_PATH=$(echo "$INIT" | jq -r '.benchmark.dataset_path // empty')
+API_KEY=$(echo "$INIT" | jq -r '.benchmark.api_key // empty')
+FRONTEND_SVC=$(echo "$INIT" | jq -r '.benchmark.frontend_svc_label // empty')
+ARRIVAL_RATE=$(echo "$INIT" | jq -r '.benchmark.standard.arrival_rate // empty')
+TOTAL_SESSIONS=$(echo "$INIT" | jq -r '.benchmark.standard.total_sessions // empty')
 ```
 </context>
 
@@ -59,24 +67,47 @@ Result: PASS (3/3) or FAIL (N/3)
 </step>
 
 <step name="BENCHMARK">
-Run `vllm bench serve` 3x in a loop:
+Construct benchmark command from `.dev.yaml` config, then run 3x.
+
+**Command construction** — two modes:
+
+**Mode A: mtb_cmd configured** (preferred — uses project-specific benchmark tool):
+```bash
+if [ -n "$MTB_CMD" ]; then
+  # Substitute template variables from benchmark.standard.* into mtb_cmd
+  BASE_CMD=$(echo "$MTB_CMD" \
+    | sed "s|{frontend_svc_label}|$FRONTEND_SVC|g" \
+    | sed "s|{svc_url}|$SVC_URL|g" \
+    | sed "s|{arrival_rate}|$ARRIVAL_RATE|g" \
+    | sed "s|{total_sessions}|$TOTAL_SESSIONS|g" \
+    | sed "s|{dataset_path}|$DATASET_PATH|g" \
+    | sed "s|{api_key}|$API_KEY|g" \
+    | sed "s|{output_dir}|/tmp/bench-results|g")
+fi
+```
+
+**Mode B: mtb_cmd not set** (fallback — generic vllm bench serve):
+```bash
+BASE_CMD="vllm bench serve \
+  --backend openai \
+  --base-url http://$SVC_URL \
+  --model $MODEL_NAME \
+  --dataset-name random \
+  --random-input-len 128 \
+  --random-output-len 64 \
+  --num-prompts 100 \
+  --request-rate inf \
+  --percentile-metrics ttft,tpot,itl,e2el \
+  --metric-percentiles 50,90,99 \
+  --save-result \
+  --result-dir /tmp/bench-results"
+```
+
+**Run 3x**:
 ```bash
 $SSH "rm -rf /tmp/bench-results && mkdir -p /tmp/bench-results"
 for RUN in 1 2 3; do
-  $SSH "vllm bench serve \
-    --backend openai \
-    --base-url http://$SVC_URL \
-    --model $MODEL_NAME \
-    --dataset-name random \
-    --random-input-len 128 \
-    --random-output-len 64 \
-    --num-prompts 100 \
-    --request-rate inf \
-    --percentile-metrics ttft,tpot,itl,e2el \
-    --metric-percentiles 50,90,99 \
-    --save-result \
-    --result-dir /tmp/bench-results \
-    --result-filename bench-${CURRENT_TAG}-run${RUN}.json"
+  $SSH "cd $MTB_DIR && $BASE_CMD --result-filename bench-${CURRENT_TAG}-run${RUN}.json"
 done
 ```
 

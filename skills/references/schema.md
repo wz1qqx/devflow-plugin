@@ -128,16 +128,24 @@ features:
 
     benchmark:
       bench_node: cluster | dedicated
-      mtb_cmd: <string>              # Benchmark execution command
-      mtb_dir: <path>
+      mtb_cmd: <string>              # Benchmark command template. Supports substitution variables:
+                                     #   {frontend_svc_label} → benchmark.frontend_svc_label
+                                     #   {svc_url}            → deploy.service_url
+                                     #   {arrival_rate}       → benchmark.standard.arrival_rate
+                                     #   {total_sessions}     → benchmark.standard.total_sessions
+                                     #   {dataset_path}       → benchmark.dataset_path
+                                     #   {api_key}            → benchmark.api_key
+                                     #   {output_dir}         → benchmark.output_dir
+                                     # Example: "python run_mtb.py --svc {frontend_svc_label} --rate {arrival_rate} --sessions {total_sessions} --dataset {dataset_path}"
+      mtb_dir: <path>               # Working directory for mtb_cmd (default: ".")
       dataset_path: <path>
       model_path: <path>
       api_key: <string>
-      frontend_svc_label: <string>
+      frontend_svc_label: <string>  # Service URL/label injected into {frontend_svc_label}
       output_dir: <string>           # Results directory (default: bench-results)
       standard:
-        arrival_rate: <float>
-        total_sessions: <int>
+        arrival_rate: <float>        # Injected into {arrival_rate}
+        total_sessions: <int>        # Injected into {total_sessions}
         num_rounds: <distribution>
         turn_interval: <distribution>
         init_prompt_length: <distribution>
