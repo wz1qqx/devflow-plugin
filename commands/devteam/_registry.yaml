@@ -104,6 +104,17 @@ commands:
     allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
     inline-process: "Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection (ssh, namespace, safety, hardware), save to .dev.yaml."
 
+  vllm-opt:
+    description: Standalone vLLM performance analysis — torch profiler, nsight kernels, optimization guidance
+    argument-hint: "<feature> [--regression-report <json>]"
+    objective: Run vLLM performance profiling and kernel analysis for a feature. Produces optimization guidance for the planner. Can accept a regression report from a prior verify run or profile from scratch.
+    init-as: team-vllm-opt
+    allowed-tools: [Read, Write, Bash, Glob, Grep]
+    inline-process: |
+      1. Load context via CLI init
+      2. Spawn the vllm-opter agent: Agent(subagent_type: "devteam:vllm-opter", prompt: "Analyze performance for feature '$FEATURE'. Workspace: $WORKSPACE. [regression report if provided]")
+      3. Display the optimization guidance report returned by the agent
+
   clean:
     description: Cleanup resources — worktrees, images, K8s resources
     argument-hint: "[--dry-run]"

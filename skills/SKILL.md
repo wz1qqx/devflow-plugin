@@ -21,6 +21,7 @@ When the user invokes `/devteam <action> [args]`, route to the matching command:
 | `feature [list\|delete]` | `/devteam feature` | List/select/delete features |
 | `init <workspace\|feature>` | `/devteam init` | Initialize workspace or add feature |
 | `cluster <add\|use\|list>` | `/devteam cluster` | Manage K8s cluster profiles |
+| `vllm-opt <feature>` | `/devteam vllm-opt` | Standalone vLLM performance analysis |
 | `clean` | `/devteam clean` | Cleanup orphan worktrees/images/pods |
 
 ## Dispatch Rule
