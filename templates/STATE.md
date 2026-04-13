@@ -14,14 +14,6 @@ pipeline_loop_count: "0"
 Currently working on: Project initialized, no active feature.
 Next step: Start a feature with `/devteam team <feature>`
 
-## Decisions
-| ID | Decision | Rationale | Date | Feature |
-|----|----------|-----------|------|---------|
-
-## Blockers
-| ID | Blocker | Type | Status | Workaround |
-|----|---------|------|--------|------------|
-
 ## Metrics
 | Feature | Spec | Plan | Exec | Review | Duration |
 |---------|------|------|------|--------|----------|

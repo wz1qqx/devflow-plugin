@@ -65,21 +65,23 @@ mkdir -p "$WORKSPACE/.dev/features/$FEATURE"
 Write `.dev/features/$FEATURE/HANDOFF.json`:
 ```json
 {
-  "version": "1.0",
-  "timestamp": "<ISO-8601 now>",
+  "version": "2.0",
+  "paused_at": "<ISO-8601 now>",
+  "ttl_days": 7,
   "project": "<project_name>",
   "feature": "$FEATURE",
   "feature_stage": "<current stage: spec/plan/exec/review/etc>",
   "task_progress": { "current": <DONE>, "total": <TOTAL> },
   "completed_tasks": ["<list of done task titles>"],
   "remaining_tasks": ["<list of pending task titles>"],
-  "blockers": [<active blockers from STATE.md>],
   "decisions_this_session": ["<decisions added during this session>"],
   "uncommitted_files": ["<paths with uncommitted changes>"],
   "next_action": "<specific first action for next session>",
   "context_notes": "<any mental state or context worth preserving>"
 }
 ```
+
+Note: `blockers` field removed from HANDOFF — active blockers are persisted in `context.md`.
 
 Rules:
 - `next_action` must be specific and actionable, not vague
@@ -109,7 +111,32 @@ Currently working on: <current activity summary>
 Next step: <what to do next session>
 ```
 
-Do NOT modify Decisions or Blockers sections (append-only, handled elsewhere).
+Do NOT write Decisions or Blockers to STATE.md — these are feature-scoped and handled by WRITE_FEATURE_CONTEXT.
+</step>
+
+<step name="WRITE_FEATURE_CONTEXT">
+Persist decisions and blockers to the feature-scoped context.md.
+
+```bash
+CONTEXT_PATH="$WORKSPACE/.dev/features/$FEATURE/context.md"
+TEMPLATE="$DEVFLOW_ROOT/templates/context.md"
+```
+
+**Create if missing**: If context.md does not exist, copy from template and replace `{{feature}}` / `{{timestamp}}`.
+
+**Append decisions**: For each decision in `decisions_this_session` (from HANDOFF):
+- Generate next D-NN ID by counting existing rows
+- Append row to `## Decisions` table:
+  ```
+  | D-NN | <decision> | <rationale> | <ISO date> |
+  ```
+
+**Archive resolved blockers**: Find rows in `## Active Blockers` where user marked status as resolved this session:
+- Move them to `## Archived Blockers` with `Resolved` = today's date and `Resolution` = resolution note
+- Remove from `## Active Blockers`
+
+**Update frontmatter**:
+- `last_updated`: current ISO-8601 timestamp
 </step>
 
 <step name="KNOWLEDGE_SINK_PROMPT">
@@ -185,18 +212,23 @@ Resume with: /devteam resume
 ## Red Flags
 
 - HANDOFF.json with vague `next_action` ("continue working")
+- HANDOFF.json missing `paused_at` or `ttl_days` fields (breaks staleness detection on resume)
 - Uncommitted files not listed in HANDOFF
 - STATE.md Position section not updated
+- Decisions written to STATE.md instead of context.md (causes cross-feature pollution)
+- context.md not created for new features
+- Resolved blockers left in Active section instead of archived
 - Knowledge sink skipped entirely
 - No checkpoint recorded
 - Pausing without feature context (no active feature detected)
 
 ## Verification Checklist
 
-- [ ] HANDOFF.json written with specific next_action
+- [ ] HANDOFF.json written with specific next_action, paused_at, and ttl_days
 - [ ] All uncommitted files documented
 - [ ] STATE.md frontmatter updated (timestamp, feature, stage, progress)
 - [ ] STATE.md Position section reflects current state
+- [ ] context.md created/updated for current feature (decisions appended, resolved blockers archived)
 - [ ] Knowledge sink prompt shown to user
 - [ ] Checkpoint recorded
 - [ ] Output shows resume command

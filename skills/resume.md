@@ -29,10 +29,21 @@ HANDOFF_PATH="$WORKSPACE/.dev/features/$FEATURE/HANDOFF.json"
 ```
 
 If HANDOFF.json exists:
-- Parse all fields: feature, feature_stage, task_progress, completed_tasks, remaining_tasks, blockers, decisions_this_session, uncommitted_files, next_action, context_notes
+- Parse all fields: feature, feature_stage, task_progress, completed_tasks, remaining_tasks, decisions_this_session, uncommitted_files, next_action, context_notes, paused_at, ttl_days
+
+- **Staleness check**:
+  ```
+  age_days = (now - paused_at).days
+  ttl = ttl_days ?? 7
+  if age_days > ttl:
+    display "⚠ Stale context: HANDOFF is {age_days} days old (TTL: {ttl}d)"
+    display "  Decisions and context from that session may no longer apply."
+    display "  Review carefully before acting on restored next_action."
+  ```
+
 - Display restoration summary:
   ```
-  Restoring from HANDOFF.json (paused: <timestamp>)
+  Restoring from HANDOFF.json (paused: <paused_at>, {age_days}d ago)
     Feature: <feature> (stage: <stage>)
     Progress: <current>/<total> tasks
     Next action: <next_action>
@@ -43,7 +54,7 @@ If HANDOFF.json exists:
   rm "$WORKSPACE/.dev/features/$FEATURE/HANDOFF.json"
   ```
 
-If no HANDOFF.json: note "No HANDOFF found. Resuming from STATE.md and config."
+If no HANDOFF.json: note "No HANDOFF found. Resuming from STATE.md and feature context."
 </step>
 
 <step name="LOAD_STATE">
@@ -54,18 +65,11 @@ STATE_PATH="$WORKSPACE/.dev/STATE.md"
 ```
 
 If STATE.md exists:
-- Parse frontmatter: project, phase, current_feature, feature_stage, plan_progress, last_activity
-- Display recent decisions:
-  ```
-  Decisions (recent):
-    D-01: <decision> (<date>, <feature>)
-    D-02: <decision> (<date>, <feature>)
-  ```
-- Display active blockers:
-  ```
-  Active Blockers:
-    B-01: <blocker> [<type>] - workaround: <workaround>
-  ```
+- Parse frontmatter only: project, phase, current_feature, feature_stage, plan_progress, last_activity
+- Read `## Position` section for current activity summary and next step
+- Do NOT load Decisions or Blockers from STATE.md — these are feature-scoped and loaded in LOAD_FEATURE_CONTEXT
+
+If STATE.md exists but has old-format `## Decisions` / `## Blockers` sections: ignore them silently (backward compat, do not migrate).
 
 If no STATE.md: "No STATE.md found. Will be created on next workflow action."
 </step>
@@ -77,26 +81,50 @@ Load feature-specific artifacts for domain context.
 FEATURE_DIR="$WORKSPACE/.dev/features/$FEATURE"
 ```
 
-Load if available:
-- `features/$FEATURE/context.md` -- discussion decisions, user preferences
+**Decisions and Blockers** (from feature-scoped context.md):
+```bash
+CONTEXT_PATH="$WORKSPACE/.dev/features/$FEATURE/context.md"
+```
+If context.md exists:
+- Parse `## Decisions` table — display all rows
+- Parse `## Active Blockers` table — display all rows
+- Display:
+  ```
+  Decisions ($FEATURE):
+    D-01: <decision> (<date>)
+    D-02: ...
+  Active Blockers ($FEATURE):
+    B-01: <blocker> [<type>] - workaround: <workaround>
+  ```
+If context.md missing: "No feature context found. Will be created on first pause."
+
+**Feature artifacts** (load if available):
 - `features/$FEATURE/plan.md` -- current plan with task statuses
 - `features/$FEATURE/spec.md` -- feature specification
 - `features/$FEATURE/review.md` -- code review results
-
-**Wiki context** (auto-load relevant pages):
-```bash
-WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir // empty')
-```
-If wiki exists: read pages matching feature topic (up to 5 pages for context).
 
 Display feature artifact status:
 ```
 Feature: $FEATURE
   Spec:    [exists/missing]
-  Context: [exists/missing]
+  Context: [exists/missing] (<N> decisions, <M> active blockers)
   Plan:    [exists/missing] (<done>/<total> tasks)
   Review:  [exists/missing] (verdict: <verdict>)
 ```
+
+**Wiki context** (explicit selection — do NOT auto-load):
+```bash
+WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir // empty')
+```
+If wiki exists and pages match feature topic:
+```
+Wiki pages available for "$FEATURE":
+  [1] <page-title> (updated: <date>)
+  [2] <page-title> (updated: <date>)
+Load which pages? (e.g. "1 2", "all", or "none" to skip)
+```
+Wait for user input. Load only selected pages.
+If no matching pages or wiki not configured: skip silently.
 
 **Check uncommitted files** (from HANDOFF or fresh scan):
 ```bash
@@ -109,36 +137,43 @@ fi
 </step>
 
 <step name="SHOW_STATUS">
-Display comprehensive project status dashboard.
+Display layered project status dashboard.
 
 ```
-=== Session Resumed ===
-
-Project: $PROJECT
-Phase: $PHASE
-Tag: $CURRENT_TAG
+=== Active Context ===
 
 Feature: $FEATURE (stage: $FEATURE_STAGE)
   Progress: $DONE/$TOTAL tasks
-  Last activity: $LAST_ACTIVITY
+  Next action: <next_action from HANDOFF, or phase-based suggestion>
+  [⚠ Stale: {age_days}d old — context may not apply]   ← only shown when stale
+
+  Decisions ($FEATURE):
+    D-01: <decision> (<date>)
+    ...
+  Active Blockers:
+    B-01: <blocker> [<type>] - workaround: <workaround>
+    (none)
+
+  Uncommitted files: <N files / none>
+
+=== Project State ===
+
+Project: $PROJECT  |  Phase: $PHASE
+Last activity: $LAST_ACTIVITY
+Tag: $CURRENT_TAG
 
 Repos:
   <repo>: <worktree> (<base_ref> + N commits) [uncommitted: Y/N]
 
 Cluster: $CLUSTER ($NAMESPACE)
   Deploy: <current deployment status if available>
-
-Knowledge: M/N features covered
-  Stale pages: <count if any>
 ```
 
-If HANDOFF was loaded, highlight:
-```
-Restored Context:
-  Decisions this session: <list>
-  Blockers: <list>
-  Uncommitted: <file list>
-```
+Notes:
+- "Active Context" shows only current feature's information
+- "Project State" shows global project status (phase, cluster, build)
+- Stale warning appears only when HANDOFF age > ttl_days
+- If no HANDOFF was loaded, omit "Next action" line; rely on SUGGEST_NEXT
 </step>
 
 <step name="SUGGEST_NEXT">
@@ -190,20 +225,24 @@ Active blockers may affect next steps:
 ## Red Flags
 
 - Resuming without loading HANDOFF.json (if it exists)
+- Not running staleness check on HANDOFF (user acts on expired context without warning)
 - Not deleting HANDOFF.json after consumption (stale state in next pause)
+- Loading Decisions/Blockers from STATE.md instead of feature context.md (cross-feature pollution)
+- Auto-loading wiki pages without showing candidate list (forces irrelevant context)
 - Ignoring uncommitted files warning
 - Suggesting actions that conflict with active blockers
-- Skipping wiki context load (re-derivation overhead)
 - Not showing feature artifact status (user can't assess completeness)
 
 ## Verification Checklist
 
 - [ ] HANDOFF.json loaded and deleted (if existed)
-- [ ] STATE.md parsed for decisions and blockers
+- [ ] Staleness check run — stale warning shown if age > ttl_days
+- [ ] STATE.md frontmatter + Position parsed (NOT Decisions/Blockers)
+- [ ] context.md loaded for current feature (decisions + active blockers)
 - [ ] Feature artifacts status shown (spec, context, plan, review)
-- [ ] Wiki context loaded (if available)
+- [ ] Wiki candidates listed, loaded only if user selects
 - [ ] Uncommitted files surfaced
-- [ ] Project status dashboard displayed
+- [ ] Status displayed in two layers: Active Context + Project State
 - [ ] Next action suggested (from HANDOFF or phase-based)
 - [ ] Active blockers warned about
 
