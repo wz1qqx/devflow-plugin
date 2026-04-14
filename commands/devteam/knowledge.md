@@ -27,5 +27,13 @@ INIT=$(node "$DEVFLOW_BIN" init knowledge)
 If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init knowledge --feature $SELECTED)`
 
 **Step 2**: Execute:
-Parse action (search/lint/list). SEARCH: match wiki/index.md, load pages, synthesize. LINT: check over-long, stale, orphans, dead links. LIST: display index.
+```bash
+WIKI_PAGES=$(echo "$INIT" | jq -c '.knowledge_notes')   # [{name, path}, ...]
+WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir // empty')
+```
+
+Parse action:
+- **SEARCH `<query>`**: filter `$WIKI_PAGES` by name/keyword match, Read matching `.path` files, synthesize answer.
+- **LIST**: print `$WIKI_PAGES` as a table (name, path).
+- **LINT**: for each page in `$WIKI_PAGES`, Read the file and check: over-long (>400 lines), stale (last modified >90 days), dead wiki links (`[[PageName]]` where `PageName` not in `$WIKI_PAGES[*].name`), orphans (no other page links to it).
 </process>
