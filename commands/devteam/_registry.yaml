@@ -115,6 +115,12 @@ commands:
       2. Spawn the vllm-opter agent: Agent(subagent_type: "devteam:vllm-opter", prompt: "Analyze performance for feature '$FEATURE'. Workspace: $WORKSPACE. [regression report if provided]")
       3. Display the optimization guidance report returned by the agent
 
+  grafana:
+    description: Set up Prometheus remote_write + Grafana dashboards + alert rules on the active cluster
+    objective: Deploy and configure observability stack from workspace.yaml observability block.
+    init-as: observability
+    allowed-tools: [Read, Write, Bash, Glob, Grep]
+
   clean:
     description: Cleanup resources — worktrees, images, K8s resources
     argument-hint: "[--dry-run]"

@@ -209,6 +209,7 @@ cluster: <string>               # Override cluster for this feature
 # WORKSPACE 级 (optional sections)
 # ═══════════════════════════════════════
 
+# Used by: /devteam grafana  (deploys Prometheus remote_write + Grafana dashboards + alert rules)
 observability:
   prometheus:
     svc: <string>
