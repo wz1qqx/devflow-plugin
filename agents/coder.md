@@ -20,13 +20,18 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init team-code)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
+INVARIANTS=$(echo "$INIT" | jq -r '.invariants // {}')
+# Extract all repo worktree paths upfront for path validation
+REPOS=$(echo "$INIT" | jq -r '.repos | to_entries[] | .key')
+for REPO in $REPOS; do
+  DEV_WORKTREE_$(echo $REPO | tr '-' '_')=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].dev_worktree")
+done
 ```
 
 Load:
-1. `.dev/features/$FEATURE/plan.md` — the implementation plan
+1. `.dev/features/$FEATURE/plan.md` — the implementation plan (source of truth for all worktree paths)
 2. `.dev/features/$FEATURE/spec.md` — for context
-3. `.dev.yaml` — project config, invariants
-4. `CLAUDE.md` — coding conventions (if exists in worktree)
+3. `CLAUDE.md` — coding conventions (if exists in workspace root)
 </context>
 
 <constraints>
@@ -58,8 +63,9 @@ For each wave, for each task:
 4. Note base_ref compatibility requirements
 
 **VALIDATE_PATHS:**
-1. Verify every target file path is within the task's worktree
-2. If any path escapes the worktree, STOP and report error
+1. Verify every target file path is within the task's worktree (from plan.md `Worktree:` field)
+2. Cross-check against `$INIT.repos[repo].dev_worktree` — if plan path ≠ init path, STOP and report mismatch
+3. If `$INVARIANTS.source_restriction == "dev_worktree_only"`: reject any path outside a registered dev_worktree
 
 **IMPLEMENT:**
 1. For modifications: use Edit tool for surgical edits, maintain style
@@ -72,12 +78,16 @@ For each wave, for each task:
 2. No obvious import errors
 3. Changes within scope (only listed files modified)
 4. Immutability patterns used
-5. Error handling for new code paths
+5. Error handling for new code paths — follow patterns in existing files in same worktree
 
 **COMMIT:**
-1. `git -C <worktree_path> add <specific_files>` — only files from this task
-2. `git -C <worktree_path> commit -m "feat(<feature>): <task_title>"`
-3. If commit fails (pre-commit hook), fix and retry
+```bash
+DEV_WORKTREE=<task's worktree from plan.md>
+git -C $DEV_WORKTREE add <specific_files>   # only files from this task
+git -C $DEV_WORKTREE commit -m "feat($FEATURE): <task_title>"
+COMMIT_HASH=$(git -C $DEV_WORKTREE rev-parse --short HEAD)
+```
+If commit fails (pre-commit hook), fix the issue and retry (never use --no-verify).
 </step>
 
 <step name="REPORT">
@@ -87,8 +97,8 @@ Return structured completion report:
 ## Implementation Complete: <feature>
 
 ### Tasks Completed
-| Task | Title | Commit | Files Changed |
-|------|-------|--------|---------------|
+| Task | Title | Commit (short hash) | Files Changed |
+|------|-------|---------------------|---------------|
 
 ### Deviations
 <any deviations from plan, or "None">

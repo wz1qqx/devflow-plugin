@@ -12,19 +12,21 @@ TOPIC="$1"
 # Auto-discover devteam CLI (marketplace or local install)
 DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 
-INIT=$(node "$DEVFLOW_BIN" init learn "$TOPIC")
+INIT=$(node "$DEVFLOW_BIN" init learn)   # topic doesn't affect init output
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
-WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir // empty')
+WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir')   # always set by init.cjs
+GROUP=$(echo "$INIT" | jq -r '.devlog.group // "unknown"')
+WORKSPACE_REPOS=$(echo "$INIT" | jq -c '.workspace_repos // {}')
 ```
 
-Gate: `TOPIC` must be non-empty. If missing, use active feature from init.
+Gate: `TOPIC` must be non-empty. If missing, use active feature from `$INIT.feature.name`.
 
 **Wiki directory resolution** (handled by init.cjs):
 1. `$VAULT/wiki/` (vault-level unified wiki)
 2. `$WORKSPACE/.dev/wiki/` (no-vault fallback)
 
 ```bash
-mkdir -p "$WIKI_DIR"
+[ -n "$WIKI_DIR" ] && mkdir -p "$WIKI_DIR"
 ```
 
 **Load wiki schema**: If `$WIKI_DIR/_schema.md` exists, read it. Schema is authoritative over hardcoded rules.
@@ -55,10 +57,10 @@ For each page whose filename or tags match `$TOPIC`:
 - Read frontmatter `repo_commits`
 - Compare against current base worktree HEAD commits
 
-Determine status:
-- **FRESH**: All pages exist and all commits match -- load for context, skip to REPORT
-- **STALE**: Pages exist but commits differ -- delta update needed
-- **MISS**: No matching pages -- full research needed
+Determine status (set `$STATUS`):
+- **FRESH** (`STATUS=FRESH`): All pages exist and all commits match -- load for context, skip to REPORT
+- **STALE** (`STATUS=STALE`): Pages exist but commits differ -- delta update needed
+- **MISS** (`STATUS=MISS`): No matching pages -- full research needed
 
 **For SOURCE_TYPE=url:**
 Check if any page has matching `source_url` in frontmatter:
@@ -78,7 +80,12 @@ Gather knowledge from the detected source. Read actual content, never rely on su
 **SOURCE_TYPE=code** (base worktrees):
 
 *MISS* (full research):
-1. Find all relevant files (Glob/Grep for topic keywords)
+1. Search for relevant files using topic keywords across all base worktrees in `$WORKSPACE_REPOS`:
+   ```bash
+   # For each repo in $WORKSPACE_REPOS, get its baseline worktrees
+   echo "$WORKSPACE_REPOS" | jq -r 'to_entries[] | .value.baselines | to_entries[] | .value' | \
+     while read WORKTREE; do Glob "$TOPIC*" in $WORKSPACE/$WORKTREE; done
+   ```
 2. Read core implementation files thoroughly
 3. Extract: architecture, data flow, key algorithms, interaction patterns
 4. Identify non-derivable insights: WHY decisions were made, non-obvious pitfalls, hidden interactions
@@ -120,7 +127,7 @@ Create or update focused, interlinked wiki pages.
 ---
 date: YYYY-MM-DD
 updated: YYYY-MM-DD
-project: {group}
+project: $GROUP
 # SOURCE_TYPE=code:
 repo_commits:
   {repo}: "{current_HEAD_hash}"

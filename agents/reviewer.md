@@ -19,12 +19,17 @@ INIT=$(node "$DEVFLOW_BIN" init team-review)
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 REPOS=$(echo "$INIT" | jq -r '.repos | to_entries[] | .key')
+INVARIANTS=$(echo "$INIT" | jq -r '.invariants // {}')
+KNOWLEDGE_NOTES=$(echo "$INIT" | jq -c '.knowledge_notes // []')
 ```
 
-For each repo, extract worktree and base_ref:
+For each repo in `$REPOS`:
 ```bash
-DEV_WORKTREE=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].dev_worktree")
-BASE_REF=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].base_ref")
+for REPO in $REPOS; do
+  DEV_WORKTREE=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].dev_worktree")
+  BASE_REF=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].base_ref")
+  BASE_WORKTREE=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].base_worktree // empty")
+done
 ```
 
 Load:
@@ -32,7 +37,7 @@ Load:
 2. `.dev/features/$FEATURE/plan.md` — intended changes
 3. Diffs: `git -C $DEV_WORKTREE diff $BASE_REF` for each repo
 4. `CLAUDE.md` — coding conventions
-5. Wiki pages — domain context
+5. Wiki pages from `$KNOWLEDGE_NOTES` — read each `{path}` file for domain context
 </context>
 
 <constraints>
@@ -48,10 +53,10 @@ Load:
 <workflow>
 
 <step name="COLLECT_DIFFS">
-For each repo:
-1. `git -C <dev_worktree> diff --stat <base_ref>` — summary
-2. `git -C <dev_worktree> diff <base_ref>` — full diff
-3. `git -C <dev_worktree> log --oneline <base_ref>..HEAD` — commits
+For each repo in `$REPOS` (using `$DEV_WORKTREE` and `$BASE_REF` from context):
+1. `git -C $DEV_WORKTREE diff --stat $BASE_REF` — summary
+2. `git -C $DEV_WORKTREE diff $BASE_REF` — full diff
+3. `git -C $DEV_WORKTREE log --oneline $BASE_REF..HEAD` — commits
 </step>
 
 <step name="REVIEW_AXES">
@@ -87,7 +92,7 @@ For each changed file, check 5 axes:
 If changes span multiple repos:
 1. API boundary consistency (signatures, types, contracts)
 2. Provider/consumer ordering correct
-3. Backward compatibility if build_compat_check active
+3. Backward compatibility if `$INVARIANTS.build_compat_check == true`
 </step>
 
 <step name="CHECK_SPEC_ALIGNMENT">
@@ -132,6 +137,14 @@ Date: YYYY-MM-DD
 ## Verdict: PASS | PASS_WITH_WARNINGS | FAIL
 <justification>
 <if FAIL: specific items that must be fixed>
+```
+</step>
+
+<step name="SAVE">
+Write report to `.dev/features/$FEATURE/review.md` (overwrite if exists).
+Then checkpoint:
+```bash
+node "$DEVFLOW_BIN" checkpoint --action review --summary "Review $VERDICT for $FEATURE"
 ```
 </step>
 

@@ -19,14 +19,18 @@ DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVFLOW_BIN" init team-spec)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
-WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir // empty')
+WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir')
+KNOWLEDGE_NOTES=$(echo "$INIT" | jq -c '.knowledge_notes // []')
+DECISIONS=$(echo "$INIT" | jq -c '.decisions // []')
+FEATURE_CONTEXT=$(echo "$INIT" | jq -r '.feature_context // empty')
+INVARIANTS=$(echo "$INIT" | jq -r '.invariants // {}')
 ```
 
 Also read:
-1. `.dev.yaml` for project config and repos
-2. Existing spec if resuming (`.dev/features/$FEATURE/spec.md`)
-3. Wiki pages matched by feature name/keywords
-4. `STATE.md` for prior decisions
+1. Existing spec if resuming (`.dev/features/$FEATURE/spec.md`)
+2. Wiki pages from `$KNOWLEDGE_NOTES` — read each `{path}` file
+3. Prior decisions from `$DECISIONS` — already parsed from STATE.md by init
+4. Feature context from `$FEATURE_CONTEXT` — prior session decisions for this feature
 </context>
 
 <constraints>
@@ -41,10 +45,11 @@ Also read:
 <workflow>
 
 <step name="LOAD_CONTEXT">
-1. Collect repo diffs/stats for scope awareness
-2. Semantically match wiki pages (up to 10)
-3. Load existing spec/context if present
-4. Load STATE.md decisions
+1. Collect repo diffs/stats: `git -C $DEV_WORKTREE diff --stat $BASE_REF` for each repo in `$INIT.repos`
+2. Read wiki pages: iterate `$KNOWLEDGE_NOTES`, read each `{path}` file relevant to feature topic
+3. Load existing spec if resuming: read `.dev/features/$FEATURE/spec.md`
+4. Prior decisions: already in `$DECISIONS` — display to understand what's already locked
+5. Feature context: already in `$FEATURE_CONTEXT` — surface prior session decisions
 </step>
 
 <step name="PARSE_REQUIREMENTS">

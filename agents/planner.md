@@ -22,22 +22,25 @@ INIT=$(node "$DEVFLOW_BIN" init team-plan)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 REPOS=$(echo "$INIT" | jq -r '.repos | to_entries[] | .key')
+KNOWLEDGE_NOTES=$(echo "$INIT" | jq -c '.knowledge_notes // []')
+INVARIANTS=$(echo "$INIT" | jq -r '.invariants // {}')
 ```
 
-For each repo, extract paths:
+For each repo in `$REPOS`:
 ```bash
-DEV_WORKTREE=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].dev_worktree")
-BASE_REF=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].base_ref")
-BASE_WORKTREE=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].base_worktree // empty")
+for REPO in $REPOS; do
+  DEV_WORKTREE=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].dev_worktree")
+  BASE_REF=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].base_ref")
+  BASE_WORKTREE=$(echo "$INIT" | jq -r ".repos[\"$REPO\"].base_worktree")
+done
 ```
 
 Load:
 1. `.dev/features/$FEATURE/spec.md` — feature requirements
-2. `.dev.yaml` — project config, invariants, repos
-3. Dev worktree files — current state of target code (read via `$DEV_WORKTREE`)
-4. `CLAUDE.md` — coding conventions (if exists)
-5. Wiki pages — domain context
-6. `project.invariants` — constraints to encode in plan
+2. Dev worktree files — current state of target code (read via `$DEV_WORKTREE/<file>`)
+3. `CLAUDE.md` — coding conventions (if exists in workspace root)
+4. Wiki pages from `$KNOWLEDGE_NOTES` — read each `{path}` file for domain context
+5. Invariants from `$INVARIANTS` — constraints to encode in plan (source_restriction, build_compat_check)
 </context>
 
 <constraints>
@@ -62,7 +65,7 @@ Load:
 <step name="ANALYZE_CURRENT_STATE">
 For each repo in scope:
 1. Read current files in dev_worktree
-2. Read same files at base_ref (via base_worktree) for comparison
+2. Read same files at base_ref: read directly from `$BASE_WORKTREE/<file>` (it is a pre-checked-out worktree at base_ref)
 3. Identify existing APIs, function signatures, class hierarchies
 4. Check for existing tests covering target code
 5. Note cross-repo import chains and API contracts
@@ -87,7 +90,7 @@ For each unit of work, create a task with:
 - **files_to_read**: list of files executor must read for context
 - **action**: detailed implementation instructions
 - **depends_on**: list of task IDs (empty if independent)
-- **delegation**: subagent (parallel-safe) or direct
+- **delegation**: `subagent` if `depends_on` is empty (Wave 1, parallel-safe); `direct` otherwise
 </step>
 
 <step name="WAVE_GROUPING">
@@ -101,7 +104,7 @@ Group tasks into execution waves:
 For changes spanning multiple repos:
 1. Identify API contracts between repos
 2. Verify provider-side changes come before consumer-side
-3. If build_compat_check invariant active, verify backward compatibility
+3. If `$INVARIANTS.build_compat_check == true`, verify backward compatibility
 4. Generate compatibility check items
 </step>
 
