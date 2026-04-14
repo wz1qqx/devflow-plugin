@@ -1,6 +1,13 @@
-# `.dev.yaml` Schema Reference
+# workspace.yaml + feature config.yaml Schema Reference
 
 核心设计：**Workspace 级（固定）** 和 **Feature 级（动态、多个）** 彻底分离。
+
+文件结构：
+```
+workspace.yaml                          ← workspace 级配置（clusters/repos/defaults）
+.dev/features/<name>/config.yaml        ← 每个 feature 的独立配置（scope/deploy/benchmark）
+```
+迁移命令：`node devteam.cjs migrate`（从旧版 .dev.yaml 一键拆分）
 
 ```yaml
 schema_version: 2
@@ -56,6 +63,8 @@ repos:
 defaults:
   active_feature: <string>          # Currently active feature
   active_cluster: <string>          # Which cluster to use by default
+  features:                         # Explicit feature name list (managed by CLI — do not edit manually)
+    - <name>                        # Each entry has a corresponding .dev/features/<name>/config.yaml
   model_profile: balanced           # Agent model tier: quality | balanced | budget
   agent_models:                     # Optional per-agent model overrides
     <agent-name>: <model>           # e.g., my-custom-auditor: opus
@@ -69,11 +78,11 @@ defaults:
     commit_format: "feat({feature}): {title}"  # Commit message template
 
 # ═══════════════════════════════════════
-# FEATURES (多个，按需创建，独立生命周期)
+# FEATURE 级 — .dev/features/<name>/config.yaml
+# 每个 feature 独立文件，flat 结构（无 features: 嵌套）
 # ═══════════════════════════════════════
 
-features:
-  <name>:
+# （以下字段直接在 config.yaml 顶层）
     description: <string>
     created: <YYYY-MM-DD>
 
@@ -228,8 +237,11 @@ skills:
 ## Init 流程
 
 ```
-/devteam:init workspace     → 一次性：repos + 基础设施 + baselines
-/devteam:init feature <name> → 按需：选 repo 子集 + 创建 dev_worktree + 设 phase
+/devteam:init workspace      → 新建 workspace.yaml（workspace 级配置）
+/devteam:init feature <name> → 新建 .dev/features/<name>/config.yaml + 注册到 defaults.features
+
+# 从旧版 .dev.yaml 迁移（一次性）：
+node devteam.cjs migrate     → 拆分为 workspace.yaml + 各 feature config.yaml，原文件备份为 .dev.yaml.bak
 ```
 
 ## Template Variables

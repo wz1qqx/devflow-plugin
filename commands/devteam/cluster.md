@@ -10,7 +10,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Manage cluster profiles in .dev.yaml.
+Manage cluster profiles in workspace.yaml.
 </objective>
 
 <context>
@@ -27,7 +27,7 @@ INIT=$(node "$DEVFLOW_BIN" init cluster)
 If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init cluster --feature $SELECTED)`
 
 **Step 2**: Execute:
-Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection — collect and save to .dev.yaml:
+Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection — collect and save to workspace.yaml:
   - ssh, namespace, safety (normal|prod)
   - hardware: gpu, rdma, nvlink, min_driver, expected_tp
   - network: socket_ifname, ucx_tls (required for RDMA/UCX clusters)

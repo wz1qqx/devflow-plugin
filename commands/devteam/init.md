@@ -11,7 +11,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Bootstrap a new workspace (.dev.yaml, directories, baselines) or add a new feature with scope, worktrees, and initial config.
+Bootstrap a new workspace (workspace.yaml, directories, baselines) or add a new feature with scope, worktrees, and initial config.
 </objective>
 
 <context>
@@ -28,7 +28,7 @@ FEATURE_NAME=$(echo "$ARGUMENTS" | awk '{print $2}')  # optional for "feature" a
 
 **Step 2 — ACTION = workspace**:
 
-The CLI does not create .dev.yaml. You must write it. Use AskUserQuestion to collect the required fields, then write `.dev.yaml` using the schema defined in `skills/references/schema.md`.
+The CLI does not create workspace.yaml. You must write it. Use AskUserQuestion to collect the required fields, then write `workspace.yaml` using the schema defined in `skills/references/schema.md`.
 
 Minimum required structure to collect:
 ```yaml
@@ -70,7 +70,7 @@ defaults:
     deploy_poll_interval: 15
 ```
 
-After writing `.dev.yaml`, create the `.dev/` directory structure:
+After writing `workspace.yaml`, create the `.dev/` directory structure:
 ```bash
 mkdir -p .dev/features
 ```
@@ -79,49 +79,45 @@ Confirm: `node "$DEVFLOW_BIN" init workspace` — verify JSON output has correct
 
 **Step 2 — ACTION = feature**:
 
-Read existing `.dev.yaml` to find available repos and their baselines. Use AskUserQuestion to collect:
+Read existing `workspace.yaml` to find available repos and their baselines. Use AskUserQuestion to collect:
 1. Feature name (or use `$FEATURE_NAME` if provided)
 2. Description
 3. Which repos are in scope, and which `base_ref` (baseline tag) to use for each
 4. Which cluster to use (from existing `clusters:` keys)
 
-Add the new feature entry under `features:` in `.dev.yaml`:
+Write `.dev/features/<name>/config.yaml` — flat file, no `features:` nesting:
 ```yaml
-features:
-  <name>:
-    description: <description>
-    created: <YYYY-MM-DD>
-    phase: dev
-    cluster: <cluster-name>
-    scope:
-      <repo-name>:
-        base_ref: <tag>
-        base_worktree: <dir>    # from repos.<name>.baselines.<tag>
-        dev_worktree: null      # will be created on first build
-    deploy:
-      yaml_file: <path>
-      dgd_name: <deployment name>
-      service_url: <url>
-      model_name: <model>
-    benchmark:
-      mtb_cmd: "<full command with {frontend_svc_label} {arrival_rate} {total_sessions} placeholders>"
-      mtb_dir: <working dir>
-      frontend_svc_label: <svc url>
-      standard:
-        arrival_rate: <float>
-        total_sessions: <int>
-    verify:
-      smoke_cmd: <single request command>
-      smoke_count: 5
-      warmup_count: 3
-      pod_selector: "app=<dgd_name>"
+description: <description>
+created: <YYYY-MM-DD>
+phase: dev
+cluster: <cluster-name>
+scope:
+  <repo-name>:
+    base_ref: <tag>
+    base_worktree: <dir>    # from repos.<name>.baselines.<tag>
+    dev_worktree: null      # will be created on first build
+deploy:
+  yaml_file: <path>
+  dgd_name: <deployment name>
+  service_url: <url>
+  model_name: <model>
+benchmark:
+  mtb_cmd: "<full command with {frontend_svc_label} {arrival_rate} {total_sessions} placeholders>"
+  mtb_dir: <working dir>
+  frontend_svc_label: <svc url>
+  standard:
+    arrival_rate: <float>
+    total_sessions: <int>
+verify:
+  smoke_cmd: <single request command>
+  smoke_count: 5
+  warmup_count: 3
+  pod_selector: "app=<dgd_name>"
 ```
 
-Set as active: update `defaults.active_feature: <name>`.
-
-Create feature directory:
+Register and set as active:
 ```bash
-mkdir -p .dev/features/<name>
+node "$DEVFLOW_BIN" features switch <name>    # sets active_feature AND adds to defaults.features list
 ```
 
 Confirm: `node "$DEVFLOW_BIN" init feature <name>` — verify JSON output shows correct repos, cluster, deploy config.

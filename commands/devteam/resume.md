@@ -8,7 +8,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Restore worktree state, active tasks, and pending items from .dev.yaml and state files.
+Restore worktree state, active tasks, and pending items from workspace.yaml and state files.
 </objective>
 
 <execution_context>

@@ -18,7 +18,7 @@ PHASE=$(echo "$INIT" | jq -r '.feature.phase')
 CURRENT_TAG=$(echo "$INIT" | jq -r '.feature.current_tag')
 ```
 
-Gate: `.dev.yaml` must exist. If not: "No project found. Run `/devteam init` first."
+Gate: `workspace.yaml` must exist. If not: "No project found. Run `/devteam init` first."
 </step>
 
 <step name="LOAD_HANDOFF">

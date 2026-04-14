@@ -88,12 +88,12 @@ Result: PASS ($SMOKE_COUNT/$SMOKE_COUNT) or FAIL
 </step>
 
 <step name="BENCHMARK">
-Construct benchmark command from `.dev.yaml` config, then run 3x.
+Construct benchmark command from feature config.yaml, then run 3x.
 
 **Gate**: `benchmark.mtb_cmd` must be configured — ABORT if missing:
 ```bash
 if [ -z "$MTB_CMD" ]; then
-  echo "ERROR: benchmark.mtb_cmd not set in .dev.yaml. Cannot run benchmark."
+  echo "ERROR: benchmark.mtb_cmd not set in feature config.yaml. Cannot run benchmark."
   exit 1
 fi
 ```

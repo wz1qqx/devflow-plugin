@@ -141,7 +141,7 @@ Report: health check time, first-request latency.
 </step>
 
 <step name="POST_DEPLOY">
-1. Execute `.hooks.post_deploy` from .dev.yaml (non-blocking — warn on failure, don't abort):
+1. Execute `.hooks.post_deploy` from feature config.yaml (non-blocking — warn on failure, don't abort):
 ```bash
 POST_HOOK=$(echo "$INIT" | jq -r '.hooks.post_deploy // empty')
 if [ -n "$POST_HOOK" ]; then

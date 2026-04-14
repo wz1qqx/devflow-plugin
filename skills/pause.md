@@ -16,7 +16,7 @@ WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 ```
 
-Gate: `.dev.yaml` must exist. If not: "No project found. Nothing to pause."
+Gate: `workspace.yaml` must exist. If not: "No project found. Nothing to pause."
 </step>
 
 <step name="GATHER_STATE">

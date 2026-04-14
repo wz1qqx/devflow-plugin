@@ -68,8 +68,8 @@ MAX_LOOPS=$(echo "$INIT" | jq -r '.tuning.max_optimization_loops // 3')
 - If restart: clear `completed_stages`
 
 Gates:
-- .dev.yaml must exist
-- Feature must be defined in .dev.yaml
+- workspace.yaml must exist
+- Feature must be listed in workspace.yaml defaults.features
 - If "spec" in STAGES and spec.md exists, ask user whether to re-spec or skip
 </step>
 

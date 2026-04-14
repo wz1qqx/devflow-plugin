@@ -28,7 +28,7 @@ commands:
 
   resume:
     description: Restore session state and show current status
-    objective: Restore worktree state, active tasks, and pending items from .dev.yaml and state files.
+    objective: Restore worktree state, active tasks, and pending items from workspace.yaml and state files.
     skill: resume.md
     allowed-tools: [Read, Bash, Glob, Grep]
 
@@ -91,18 +91,18 @@ commands:
   init:
     description: Initialize workspace or add a new feature
     argument-hint: "<workspace|feature> [name]"
-    objective: Bootstrap a new workspace (.dev.yaml, directories, baselines) or add a new feature with scope, worktrees, and initial config.
+    objective: Bootstrap a new workspace (workspace.yaml, directories, baselines) or add a new feature with scope, worktrees, and initial config.
     init-as: workspace
     allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
-    inline-process: "Parse action (workspace|feature). WORKSPACE: create .dev.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature entry in .dev.yaml, create .dev/features/<name>/ directory, set as active feature."
+    inline-process: "Parse action (workspace|feature). WORKSPACE: create workspace.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature config.yaml, create .dev/features/<name>/ directory, set as active feature."
 
   cluster:
     description: Manage Kubernetes clusters — add, use, list
     argument-hint: "<add|use|list> [name]"
-    objective: Manage cluster profiles in .dev.yaml.
+    objective: Manage cluster profiles in workspace.yaml.
     init-as: cluster
     allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
-    inline-process: "Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection (ssh, namespace, safety, hardware), save to .dev.yaml."
+    inline-process: "Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection (ssh, namespace, safety, hardware), save to workspace.yaml."
 
   vllm-opt:
     description: Standalone vLLM performance analysis — torch profiler, nsight kernels, optimization guidance
