@@ -73,16 +73,23 @@ docker push "$REGISTRY/$BASE_IMAGE_NAME:$CONFIRMED_TAG"
 </step>
 
 <step name="UPDATE_STATE">
-Update `.dev.yaml`:
-1. Set `features.$FEATURE.current_tag` to new tag
-2. Append to `features.$FEATURE.build_history`:
-   ```yaml
-   - tag: <tag>
-     date: <today>
-     changes: <summary>
-     base: <previous_tag>
-   ```
-3. Checkpoint: `node "$DEVFLOW_BIN" checkpoint --action build --summary "Built $TAG"`
+Record the build using the CLI (updates `current_tag` + appends to `build_history` + writes `build-manifest.md`):
+
+```bash
+node "$DEVFLOW_BIN" build record \
+  --tag "$CONFIRMED_TAG" \
+  --base "$REGISTRY/$BASE_IMAGE_NAME:$CURRENT_TAG" \
+  --changes "<one-line summary of what changed in this build>" \
+  --mode "$BUILD_MODE" \
+  --cluster "$CLUSTER_NAME"
+```
+
+Then checkpoint:
+```bash
+node "$DEVFLOW_BIN" checkpoint --action build --summary "Built $CONFIRMED_TAG"
+```
+
+Do NOT manually edit `.dev.yaml` for build history — use the CLI command above.
 </step>
 
 </workflow>

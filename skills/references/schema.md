@@ -183,14 +183,21 @@ features:
       strategy: docker | k8s | ci-cd
       # ... existing build/deploy config fields
 
-    build_history:
-      - tag: <string>
+    build_history:                     # Last N entries (truncated by tuning.build_history_limit)
+      - tag: <string>                  # Image tag (e.g. "v8")
         date: <YYYY-MM-DD>
-        changes: <string>
-        mode: <string>
-        base: <string>
-        cluster: <string>
-        note: <string>
+        changes: <string>              # One-line summary of what changed
+        mode: <string>                 # fast | rust | full
+        base: <string>                 # Full base image reference used
+        cluster: <string>              # Cluster deployed to
+        note: <string>                 # Optional free-form note
+
+# Build history is written via CLI — NEVER manually edit build_history or current_tag:
+#   node devteam.cjs build record --tag <tag> --base <base> --changes "<summary>" \
+#     [--mode fast|rust|full] [--cluster <name>] [--note "<note>"]
+#
+# This also writes the permanent (never-truncated) record to:
+#   .dev/features/<name>/build-manifest.md   ← canonical build chain, full history
 
 # ═══════════════════════════════════════
 # WORKSPACE 级 (optional sections)
