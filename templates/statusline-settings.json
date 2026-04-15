@@ -1,0 +1,6 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash -c 'SL=$(ls ~/.claude/plugins/cache/devteam/devteam/*/hooks/devteam-statusline.js 2>/dev/null | head -1); [ -n \"$SL\" ] && node \"$SL\" || echo \"devteam\"'"
+  }
+}

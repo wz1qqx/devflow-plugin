@@ -28,7 +28,7 @@ claude plugin marketplace add wz1qqx/devteam
 claude plugin install devteam@devteam
 
 # In your project directory
-/devteam init workspace              # Initialize workspace (.dev.yaml)
+/devteam init workspace              # Initialize workspace (workspace.yaml)
 /devteam init feature my-feature     # Create a feature
 
 # Launch the full pipeline
@@ -75,7 +75,7 @@ Options:
 |---------|-------------|
 | `/devteam feature` | List all features, prompt user to select active one |
 | `/devteam feature list` | List features with phase/scope/description |
-| `/devteam feature delete <name>` | Delete a feature from .dev.yaml and its artifacts |
+| `/devteam feature delete <name>` | Delete a feature from workspace registration and its artifacts |
 
 ### Session Management
 
@@ -156,6 +156,25 @@ If the orchestrator is interrupted mid-pipeline, the next `/devteam team` invoca
 - **Review loop**: Reviewer FAIL → Coder fix → Reviewer re-check (max 2 cycles)
 - **Optimization loop**: Verifier FAIL → vLLM-Opter analysis → Planner re-plan → full re-execution (max N loops, configurable via `tuning.max_optimization_loops`)
 
+### Structured Stage Results
+
+Every stage agent now returns a human-readable report plus a final `STAGE_RESULT` JSON block. The orchestrator uses that structured payload, not free-form prose, to decide whether to checkpoint, retry, enter the review loop, or enter the optimization loop. The shared contract lives in [`skills/references/stage-result-contract.md`](/Users/ppio-dn-289/Documents/devteam/skills/references/stage-result-contract.md:1), and the reusable parser/helper lives in [lib/stage-result.cjs](/Users/ppio-dn-289/Documents/devteam/lib/stage-result.cjs:1).
+
+Helper entrypoint:
+
+```bash
+printf '%s' "$AGENT_MESSAGE" | node lib/devteam.cjs orchestration resolve-stage --stage review --report-path .dev/features/my-feature/review.md --review-cycle 0 --max-review-cycles 2
+printf '%s' "$AGENT_MESSAGE" | node lib/devteam.cjs stage-result parse --stage review
+printf '%s' "$AGENT_MESSAGE" | node lib/devteam.cjs stage-result parse --stage review --report-path .dev/features/my-feature/review.md
+printf '%s' "$AGENT_MESSAGE" | node lib/devteam.cjs stage-result decide --stage review --review-cycle 0 --max-review-cycles 2
+printf '%s' "$AGENT_MESSAGE" | node lib/devteam.cjs stage-result accept --stage review --report-path .dev/features/my-feature/review.md
+node lib/devteam.cjs pipeline init --stages code,review,build
+node lib/devteam.cjs pipeline loop --count 1
+node lib/devteam.cjs pipeline complete --stages code,review,build --summary "Pipeline complete for my-feature"
+```
+
+Preferred orchestration path: use `orchestration resolve-stage` from the prompt layer, and treat `stage-result parse/decide/accept` as lower-level building blocks for debugging or finer-grained tooling.
+
 ### Anti-Rationalization
 
 Every skill and agent includes:
@@ -191,34 +210,42 @@ devteam/
 │   ├── learn.md                   # Wiki ingest (code/URL/file sources)
 │   ├── pause.md                   # Session state save
 │   ├── resume.md                  # Session state restore
-│   └── references/schema.md       # .dev.yaml schema reference
+│   └── references/schema.md       # workspace.yaml + feature config schema reference
 │
 ├── lib/                           # Node.js CLI modules
 │   ├── devteam.cjs                # CLI entry point
 │   ├── init.cjs                   # Compound context loader (17 workflow types)
-│   ├── config.cjs                 # .dev.yaml loading + feature auto-select
+│   ├── config.cjs                 # workspace.yaml + feature config loading
 │   ├── state.cjs                  # Phase + STATE.md field management
 │   ├── session.cjs                # STATE.md + HANDOFF.json read/write
+│   ├── stage-result.cjs           # STAGE_RESULT parser + report persistence helper
+│   ├── stage-decision.cjs         # Maps STAGE_RESULT to orchestrator branch decisions
+│   ├── stage-acceptance.cjs       # Accepts PASS stage results and writes state/checkpoint
+│   ├── pipeline-state.cjs         # Pipeline init/reset/loop/complete helper
+│   ├── orchestration-kernel.cjs   # High-level parse/decide/accept orchestration helper
 │   ├── checkpoint.cjs             # Devlog checkpoints
+│   ├── version.cjs                # VERSION loader
 │   ├── yaml.cjs                   # YAML parser
 │   └── core.cjs                   # Shared utilities
 │
 ├── hooks/                         # Claude Code hooks
 │   ├── hooks.json                 # Hook registrations
-│   ├── my-dev-context-monitor.js  # PostToolUse: context window warnings (35%/25%)
-│   ├── devflow-persistent.js      # Stop: persistent mode engine
-│   └── my-dev-statusline.js       # Statusline: model | ctx | project | feature | phase
+│   ├── devteam-context-monitor.js # PostToolUse: context window warnings (35%/25%)
+│   ├── devteam-persistent.js      # Stop: persistent mode engine
+│   ├── devteam-statusline.js      # StatusLine command target
+│   └── my-dev-statusline.js       # Backward-compat statusline wrapper
 │
 ├── templates/STATE.md             # STATE.md template (with pipeline checkpoint fields)
 └── bin/
     ├── generate-commands.cjs      # Regenerate commands from registry
+    ├── sync-version.cjs           # Sync VERSION into manifests + README
     ├── sync-cache.sh              # Sync local repo → plugin cache
     └── setup.sh                   # Local dev verification
 ```
 
 ## Configuration
 
-Create `.dev.yaml` in your project root (or let `/devteam init` generate it):
+Create `workspace.yaml` in your project root, then let `/devteam init feature <name>` create `.dev/features/<name>/config.yaml`:
 
 ```yaml
 schema_version: 2
@@ -248,17 +275,22 @@ clusters:
 defaults:
   active_feature: my-feature           # optional — auto-selects if only 1 feature
   active_cluster: dev-cluster
+  features:
+    - my-feature
+```
 
-features:
-  my-feature:
-    description: "My awesome feature"
-    phase: spec                        # spec|plan|code|test|review|ship|debug|dev|completed
-    scope:
-      my-repo:
-        base_ref: v1.0
-        dev_worktree: my-repo-dev
-    ship:
-      strategy: k8s                    # docker | k8s | ci-cd
+Feature config lives in `.dev/features/my-feature/config.yaml`:
+
+```yaml
+description: "My awesome feature"
+phase: spec                            # spec|plan|code|test|review|ship|debug|dev|completed
+scope:
+  my-repo:
+    base_ref: v1.0
+    dev_worktree: my-repo-dev
+
+ship:
+  strategy: k8s                        # currently only k8s is implemented
 ```
 
 Feature selection: if only one feature exists it's auto-selected. If multiple exist and no `--feature` or `active_feature` is set, the skill prompts you to choose.
@@ -286,14 +318,14 @@ Agents are spawned with `subagent_type: "devteam:<name>"`, not as generic agents
 
 ### Wave-Based Parallel Execution
 
-The planner groups independent tasks into waves. Tasks within a wave execute in parallel, each producing atomic git commits. Dependencies between waves are respected sequentially.
+The planner groups independent tasks into waves. The current executor consumes those waves in dependency order with a single coder agent, so execution is still serial today. The wave structure is retained for planning clarity and future fan-out.
 
 ### Strategy-Driven Shipping
 
-`/devteam team` reads `ship.strategy` from `.dev.yaml` and routes to the appropriate flow:
-- **docker** — build image → push → update tag
+`/devteam team` reads `ship.strategy` from feature config and currently supports only:
 - **k8s** — build + deploy to cluster → wait ready → health check
-- **ci-cd** — trigger CI pipeline → wait → verify
+
+Any other strategy is rejected during config loading instead of silently falling into the k8s path.
 
 ### Namespace Safety
 
@@ -315,7 +347,9 @@ All `kubectl` commands are enforced with `-n <namespace>`. Production clusters (
 |------|-------|---------|
 | Context Monitor | PostToolUse | Warns at 35% (warning) and 25% (critical) context remaining |
 | Persistent Mode | Stop | Prevents session exit during active pipeline execution |
-| Statusline | Always | Shows `Model | ctx [====    ] 42% | project | feature | [phase]` |
+| Statusline | Claude `statusLine` setting | Shows `Model | ctx [====    ] 42% | project | feature | [phase]` |
+
+Statusline setup is separate from `hooks/hooks.json`. Use Claude Code's `statusLine` setting and the example in [templates/statusline-settings.json](/Users/ppio-dn-289/Documents/devteam/templates/statusline-settings.json:1).
 
 ## Prerequisites
 
@@ -344,6 +378,13 @@ Regenerate commands after modifying `_registry.yaml`:
 
 ```bash
 node bin/generate-commands.cjs
+```
+
+Version metadata is sourced from `VERSION`. After a version bump, sync manifests and README with:
+
+```bash
+node bin/sync-version.cjs
+node bin/sync-version.cjs --check
 ```
 
 ## License

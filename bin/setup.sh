@@ -21,13 +21,21 @@ echo "Plugin root: $PLUGIN_ROOT"
 echo ""
 
 # --- 1. Check marketplace installation ---
-MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1 || true)
+MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1 || true)
+USING_LEGACY_CACHE=false
 if [ -z "$MARKETPLACE_BIN" ]; then
-  # Also check if marketplace name matches plugin name (devteam/devteam)
-  MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1 || true)
+  # Legacy cache path from pre-rename installs
+  MARKETPLACE_BIN=$(ls ~/.claude/plugins/cache/devflow/devteam/*/lib/devteam.cjs 2>/dev/null | head -1 || true)
+  if [ -n "$MARKETPLACE_BIN" ]; then
+    USING_LEGACY_CACHE=true
+  fi
 fi
 if [ -n "$MARKETPLACE_BIN" ]; then
   echo "[OK] Marketplace install detected: $(dirname "$(dirname "$MARKETPLACE_BIN")")"
+  if [ "$USING_LEGACY_CACHE" = true ]; then
+    echo "[WARN] Using legacy marketplace cache path (~/.claude/plugins/cache/devflow/...)."
+    echo "       Reinstalling plugin will migrate this path to ~/.claude/plugins/cache/devteam/..."
+  fi
 else
   echo "[INFO] No marketplace install found. For production use:"
   echo "       claude plugin marketplace add wz1qqx/devteam"
@@ -56,7 +64,7 @@ if [ -f "$CLI_ROOT/devteam.cjs" ]; then
   if node "$CLI_ROOT/devteam.cjs" features list > /dev/null 2>&1; then
     echo "[OK] CLI tools working (workspace detected)"
   else
-    echo "[OK] CLI tools callable (no workspace configured yet — run /devteam:init)"
+    echo "[OK] CLI tools callable (no workspace configured yet — run /devteam init)"
   fi
 else
   echo "[ERROR] devteam.cjs not found at $CLI_ROOT/"
@@ -66,8 +74,8 @@ fi
 # --- 4. Check for legacy symlinks ---
 echo ""
 LEGACY=false
-[ -L "$HOME/.claude/my-dev" ] && echo "[LEGACY] ~/.claude/my-dev symlink exists (can be removed)" && LEGACY=true
-[ -L "$HOME/.claude/commands/devflow" ] && echo "[LEGACY] ~/.claude/commands/devflow symlink exists (can be removed)" && LEGACY=true
+[ -L "$HOME/.claude/my-dev" ] && echo "[WARN][LEGACY] ~/.claude/my-dev symlink exists (can be removed)" && LEGACY=true
+[ -L "$HOME/.claude/commands/devflow" ] && echo "[WARN][LEGACY] ~/.claude/commands/devflow symlink exists (can be removed)" && LEGACY=true
 if [ "$LEGACY" = false ]; then
   echo "[OK] No legacy symlinks found"
 fi
@@ -77,6 +85,7 @@ echo "=== Check complete ==="
 echo ""
 echo "Next steps:"
 echo "  1. cd <your-project-directory>"
-echo "  2. Run /devteam:init to initialize workspace (workspace.yaml)"
-echo "  3. Run /devteam:init feature <name> to create your first feature"
-echo "  4. Run /devteam:team <feature> to start the automated pipeline"
+echo "  2. Run /devteam init to initialize workspace (workspace.yaml)"
+echo "  3. Run /devteam init feature <name> to create your first feature"
+echo "  4. Run /devteam team <feature> to start the automated pipeline"
+echo "  5. Optional: merge templates/statusline-settings.json into ~/.claude/settings.local.json"

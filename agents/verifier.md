@@ -16,8 +16,9 @@ On FAIL, your report must include enough structured data for the vLLM-Opter to d
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-verify)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-verify)
+FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
 SSH_HOST=$(echo "$SSH" | grep -oE '[^ ]+@[^ ]+' | tail -1)
 NAMESPACE=$(echo "$INIT" | jq -r '.cluster.namespace')
@@ -50,6 +51,7 @@ POST_VERIFY_HOOK=$(echo "$INIT" | jq -r '.hooks.post_verify // empty')
 - Use median of medians for comparison — single runs are noise
 - Regression threshold from config (default 20%)
 - Smoke is pass/fail — no partial credit
+- The orchestrator owns checkpoint, verify report persistence, and optimization-loop control
 </constraints>
 
 <workflow>
@@ -169,13 +171,40 @@ fi
 ```
 </step>
 
+<step name="RETURN_RESULT">
+Return the full verify report, then end with:
+
+## STAGE_RESULT
+```json
+{
+  "stage": "verify",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "verify-report", "path": ".dev/features/$FEATURE/verify.md"},
+    {"kind": "benchmark", "path": "$BENCH_OUTPUT_DIR"}
+  ],
+  "next_action": "If PASS, finish the pipeline. If FAIL, feed metrics to vLLM-Opter.",
+  "retryable": false,
+  "metrics": {
+    "smoke_pass_count": 0,
+    "smoke_total": 0,
+    "threshold_pct": 0,
+    "regressions": []
+  }
+}
+```
+
+If benchmark execution itself fails, use `status: "failed"` rather than `completed`, keep `verdict: "FAIL"`, and explain the execution blocker before the JSON block.
+</step>
+
 </workflow>
 
 <team>
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report: SendMessage(to: orchestrator, summary: "verify: <PASS|FAIL>", message: "<full report with metrics>")
+3. Report: SendMessage(to: orchestrator, summary: "verify: <PASS|FAIL>", message: "<full report with metrics>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. On FAIL: include structured regression data for vLLM-Opter consumption
 5. All coordination through orchestrator
 </team>

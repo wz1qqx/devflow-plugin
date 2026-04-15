@@ -21,29 +21,17 @@ $ARGUMENTS
 <process>
 **Step 1**: Discover CLI tool and load config:
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init workspace)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init workspace)
 ```
 
-If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init workspace --feature $SELECTED)`
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init workspace --feature $SELECTED)`
 
-**Step 2**: Execute based on action:
-
-**LIST / no action**:
-```bash
-node "$DEVFLOW_BIN" features list   # returns {features: [{name, description, phase, scope, active}]}
-```
-Display as table. Then use AskUserQuestion to let user pick a feature to activate.
-```bash
-node "$DEVFLOW_BIN" features switch <selected>
-```
-Confirm: "Feature '<selected>' is now active."
-
-**DELETE**:
-```bash
-# Confirm with AskUserQuestion first
-node "$DEVFLOW_BIN" features delete <name>
-```
-
-Note: `$INIT` (from `init workspace`) also has `available_features` — use it for the initial list display if CLI call fails.
+**Step 2**: Execute:
+1. Run CLI: `node "$DEVTEAM_BIN" features list` to get all features with phase/scope
+2. Display features as a table: name, description, phase, scope
+3. If action is `delete`: confirm with AskUserQuestion, then run `node "$DEVTEAM_BIN" features delete <name>`
+4. If action is `list` or no action: use AskUserQuestion to let user pick a feature
+5. Run `node "$DEVTEAM_BIN" features switch <selected>` to bind the selection
+6. Show confirmation: "Feature '<name>' is now active"
 </process>

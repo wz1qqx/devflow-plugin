@@ -15,8 +15,8 @@ You are a thinking partner, not an interviewer — challenge assumptions and off
 <context>
 Load project context at start:
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-spec)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-spec)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir')
@@ -29,7 +29,7 @@ INVARIANTS=$(echo "$INIT" | jq -r '.invariants // {}')
 Also read:
 1. Existing spec if resuming (`.dev/features/$FEATURE/spec.md`)
 2. Wiki pages from `$KNOWLEDGE_NOTES` — read each `{path}` file
-3. Prior decisions from `$DECISIONS` — already parsed from STATE.md by init
+3. Prior decisions from `$DECISIONS` — already parsed from feature `context.md` by init
 4. Feature context from `$FEATURE_CONTEXT` — prior session decisions for this feature
 </context>
 
@@ -40,6 +40,7 @@ Also read:
 - Every decision must have a rationale recorded
 - Out-of-scope section must be non-empty
 - If the user's answers are ambiguous, make reasonable decisions and document them as D-XX with rationale
+- The orchestrator owns checkpoint and pipeline-state writes — do not update workflow state yourself
 </constraints>
 
 <workflow>
@@ -102,8 +103,31 @@ Created: YYYY-MM-DD
 
 <step name="SAVE">
 1. Write spec to `.dev/features/$FEATURE/spec.md`
-2. Update phase: `node "$DEVFLOW_BIN" state update phase spec`
-3. Checkpoint: `node "$DEVFLOW_BIN" checkpoint --action spec --summary "Spec complete for $FEATURE"`
+</step>
+
+<step name="RETURN_RESULT">
+Return a short human-readable summary, then end with:
+
+## STAGE_RESULT
+```json
+{
+  "stage": "spec",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "spec", "path": ".dev/features/$FEATURE/spec.md"}
+  ],
+  "next_action": "Planner can read the finalized spec and produce plan.md.",
+  "retryable": false,
+  "metrics": {
+    "decisions_locked": 0,
+    "verification_criteria": 0,
+    "assumptions_added": 0
+  }
+}
+```
+
+If blocked, set `status` to `failed` or `needs_input`, set `verdict` truthfully, and explain the blocker before the JSON block.
 </step>
 
 </workflow>
@@ -112,6 +136,6 @@ Created: YYYY-MM-DD
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report result: SendMessage(to: orchestrator, summary: "spec complete", message: "Spec written to .dev/features/$FEATURE/spec.md")
+3. Report result: SendMessage(to: orchestrator, summary: "spec complete", message: "<human summary>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. All coordination through orchestrator — never message other agents directly
 </team>

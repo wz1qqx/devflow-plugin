@@ -68,11 +68,11 @@ function generateCommandMd(name, cmd) {
   const processLines = [];
   processLines.push('**Step 1**: Discover CLI tool and load config:');
   processLines.push('```bash');
-  processLines.push('DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)');
-  processLines.push(`INIT=$(node "$DEVFLOW_BIN" init ${initAs})`);
+  processLines.push('DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)');
+  processLines.push(`INIT=$(node "$DEVTEAM_BIN" init ${initAs})`);
   processLines.push('```');
   processLines.push('');
-  processLines.push('If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init ' + initAs + ' --feature $SELECTED)`');
+  processLines.push('If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init ' + initAs + ' --feature $SELECTED)`');
   processLines.push('');
 
   if (skillPath) {

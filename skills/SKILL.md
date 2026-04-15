@@ -27,7 +27,7 @@ When the user invokes `/devteam <action> [args]`, route to the matching command:
 ## Dispatch Rule
 
 1. Parse first token of `$ARGUMENTS` as `<action>`
-2. Route to corresponding `/devteam:<action>` command
+2. Route to corresponding `/devteam <action>` command
 3. Pass remaining args forward
 
 If no action specified, suggest `/devteam team <feature>` as the primary workflow.

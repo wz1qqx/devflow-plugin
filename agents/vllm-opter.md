@@ -16,8 +16,9 @@ Core principle: "Never tune what you haven't profiled. Never profile what you ha
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-vllm-opt)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-vllm-opt)
+FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
 SVC_URL=$(echo "$INIT" | jq -r '.deploy.service_url // empty')
 MODEL_NAME=$(echo "$INIT" | jq -r '.deploy.model_name // empty')
@@ -46,6 +47,7 @@ Receive verifier's regression report (which metrics regressed, by how much) via 
 - Never compare profiled vs non-profiled latency (10-30% overhead)
 - Use --enforce-eager for kernel visibility (CUDA graphs hide individual kernels)
 - GPU environment must be clean before any measurement
+- The orchestrator owns checkpoint, loop control, and persistence of optimization guidance
 </constraints>
 
 <workflow>
@@ -167,6 +169,27 @@ Root cause: <specific finding>
 After implementing recommendations, expect:
 - <metric>: <expected improvement>
 ```
+
+End the message with:
+
+## STAGE_RESULT
+```json
+{
+  "stage": "vllm-opt",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "guidance", "path": ".dev/features/$FEATURE/optimization-guidance.md"}
+  ],
+  "next_action": "Planner can create an incremental optimization plan from this guidance.",
+  "retryable": false,
+  "metrics": {
+    "primary_bottleneck": "attention",
+    "category_breakdown": {},
+    "expected_improvement_pct": 0
+  }
+}
+```
 </step>
 
 </workflow>
@@ -175,7 +198,7 @@ After implementing recommendations, expect:
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report: SendMessage(to: orchestrator, summary: "optimization guidance ready", message: "<full guidance document>")
+3. Report: SendMessage(to: orchestrator, summary: "optimization guidance ready", message: "<full guidance document>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. Orchestrator feeds this guidance to Planner for re-planning
 5. All coordination through orchestrator
 </team>

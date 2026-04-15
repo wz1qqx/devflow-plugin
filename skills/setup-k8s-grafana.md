@@ -9,8 +9,8 @@
 Load workspace and observability config.
 
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init observability)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init observability)
 
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
 NAMESPACE=$(echo "$INIT" | jq -r '.cluster.namespace')

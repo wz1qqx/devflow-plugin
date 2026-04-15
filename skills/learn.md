@@ -10,9 +10,9 @@ Load workspace configuration, resolve wiki directory, detect source type.
 ```bash
 TOPIC="$1"
 # Auto-discover devteam CLI (marketplace or local install)
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 
-INIT=$(node "$DEVFLOW_BIN" init learn)   # topic doesn't affect init output
+INIT=$(node "$DEVTEAM_BIN" init learn)   # topic doesn't affect init output
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 WIKI_DIR=$(echo "$INIT" | jq -r '.wiki_dir')   # always set by init.cjs
 GROUP=$(echo "$INIT" | jq -r '.devlog.group // "unknown"')
@@ -222,7 +222,7 @@ Wiki Ingest: $TOPIC
 
 Checkpoint (if called manually):
 ```bash
-node "$DEVFLOW_BIN" checkpoint \
+node "$DEVTEAM_BIN" checkpoint \
   --action "learn" \
   --summary "Wiki ingest: $TOPIC ($STATUS)"
 ```

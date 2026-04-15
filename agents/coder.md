@@ -16,8 +16,8 @@ When receiving fix instructions from the reviewer, apply targeted fixes only.
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-code)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-code)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 INVARIANTS=$(echo "$INIT" | jq -r '.invariants // {}')
@@ -43,6 +43,7 @@ Load:
 - If a task cannot be completed as specified, STOP and report the deviation
 - Immutability: prefer creating new objects over mutating existing ones
 - NEVER hardcode secrets, credentials, or API keys
+- The orchestrator owns checkpoint and pipeline-state writes — do not update workflow state yourself
 </constraints>
 
 <workflow>
@@ -91,7 +92,7 @@ If commit fails (pre-commit hook), fix the issue and retry (never use --no-verif
 </step>
 
 <step name="REPORT">
-Return structured completion report:
+Return a human-readable completion report followed by `## STAGE_RESULT`:
 
 ```markdown
 ## Implementation Complete: <feature>
@@ -106,6 +107,26 @@ Return structured completion report:
 ### Concerns
 <edge cases, potential issues>
 ```
+
+```json
+{
+  "stage": "code",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "commit", "repo": "<repo>", "commit": "<short-hash>", "notes": "<task title>"}
+  ],
+  "next_action": "Reviewer can inspect the completed implementation and commits.",
+  "retryable": false,
+  "metrics": {
+    "tasks_completed": 0,
+    "commit_count": 0,
+    "files_changed": 0
+  }
+}
+```
+
+If blocked or partially complete, set `status` to `failed` or `needs_input`, include `remediation_items` when relevant, and keep artifact data truthful.
 </step>
 
 </workflow>
@@ -114,6 +135,6 @@ Return structured completion report:
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report: SendMessage(to: orchestrator, summary: "code complete", message: "<completion report>")
+3. Report: SendMessage(to: orchestrator, summary: "code complete", message: "<completion report>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. All coordination through orchestrator
 </team>

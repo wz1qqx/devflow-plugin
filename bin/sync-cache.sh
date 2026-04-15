@@ -7,7 +7,8 @@
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
-DST="$HOME/.claude/plugins/cache/devteam/devteam/2.0.0"
+VERSION="$(cat "$SRC/VERSION")"
+DST="$HOME/.claude/plugins/cache/devteam/devteam/$VERSION"
 
 mkdir -p "$DST"
 rsync -a --delete \

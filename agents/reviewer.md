@@ -14,8 +14,8 @@ PASS, PASS_WITH_WARNINGS, or FAIL. CRITICAL findings = automatic FAIL.
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-review)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-review)
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 REPOS=$(echo "$INIT" | jq -r '.repos | to_entries[] | .key')
@@ -42,6 +42,7 @@ Load:
 
 <constraints>
 - STRICTLY READ-ONLY — no Write or Edit tools. NEVER suggest running write commands.
+- Do NOT run CLI commands that mutate checkpoint or workflow state. The orchestrator owns that.
 - Review ALL changed files across ALL repos, not just a sample
 - Cite file paths, line numbers, and code snippets for every finding
 - Grade: CRITICAL > HIGH > MEDIUM > LOW > INFO
@@ -141,11 +142,37 @@ Date: YYYY-MM-DD
 </step>
 
 <step name="SAVE">
-Write report to `.dev/features/$FEATURE/review.md` (overwrite if exists).
-Then checkpoint:
-```bash
-node "$DEVFLOW_BIN" checkpoint --action review --summary "Review $VERDICT for $FEATURE"
+Do NOT write files directly. You are read-only.
+
+Return the full review report to the orchestrator via SendMessage. The orchestrator is responsible for persisting `.dev/features/$FEATURE/review.md` and checkpointing.
+
+End the message with:
+
+## STAGE_RESULT
+```json
+{
+  "stage": "review",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "review", "path": ".dev/features/$FEATURE/review.md"}
+  ],
+  "next_action": "Proceed to the next pipeline stage or address remediation items.",
+  "retryable": false,
+  "metrics": {
+    "finding_counts": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "info": 0
+    }
+  },
+  "remediation_items": []
+}
 ```
+
+If the verdict is FAIL, `remediation_items` must be specific and directly actionable for the coder.
 </step>
 
 </workflow>
@@ -154,7 +181,7 @@ node "$DEVFLOW_BIN" checkpoint --action review --summary "Review $VERDICT for $F
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report: SendMessage(to: orchestrator, summary: "review: <VERDICT>", message: "<full report>")
+3. Report: SendMessage(to: orchestrator, summary: "review: <VERDICT>", message: "<full report>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. On FAIL: include specific remediation items for coder
 5. All coordination through orchestrator
 </team>

@@ -1,12 +1,19 @@
 {
   "name": "devteam",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Automated multi-agent pipeline orchestration for full development lifecycle — one command from spec to verified deployment with optimization feedback loops",
   "author": {
     "name": "gailun"
   },
   "license": "MIT",
-  "keywords": ["agent", "team", "orchestration", "multi-repo", "k8s", "pipeline"],
+  "keywords": [
+    "agent",
+    "team",
+    "orchestration",
+    "multi-repo",
+    "k8s",
+    "pipeline"
+  ],
   "skills": "./skills/",
   "commands": "./commands/"
 }

@@ -1,7 +1,7 @@
 # Skill: resume
 
-<purpose>Restore session state from HANDOFF.json and STATE.md. Zero context loss across sessions -- load everything needed to continue exactly where the user left off.</purpose>
-<core_principle>The resumed session must have the same effective context as the paused session. HANDOFF.json gives precise position; STATE.md gives accumulated decisions and blockers. Feature artifacts provide domain context. The user should never need to re-explain.</core_principle>
+<purpose>Restore session state from HANDOFF.json, STATE.md, and feature context.md. Zero context loss across sessions -- load everything needed to continue exactly where the user left off.</purpose>
+<core_principle>The resumed session must have the same effective context as the paused session. HANDOFF.json gives precise position; STATE.md gives workflow position; feature context.md gives decisions and blockers. Feature artifacts provide domain context. The user should never need to re-explain.</core_principle>
 
 <process>
 <step name="INIT" priority="first">
@@ -9,9 +9,9 @@ Load project configuration and locate handoff artifacts.
 
 ```bash
 # Auto-discover devteam CLI (marketplace or local install)
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 
-INIT=$(node "$DEVFLOW_BIN" init resume)
+INIT=$(node "$DEVTEAM_BIN" init resume)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 PHASE=$(echo "$INIT" | jq -r '.feature.phase')
@@ -58,7 +58,7 @@ If no HANDOFF.json: note "No HANDOFF found. Resuming from STATE.md and feature c
 </step>
 
 <step name="LOAD_STATE">
-Load STATE.md for accumulated decisions and blockers.
+Load STATE.md for workflow position and recent activity.
 
 ```bash
 STATE_PATH="$WORKSPACE/.dev/STATE.md"
@@ -102,6 +102,8 @@ If context.md missing: "No feature context found. Will be created on first pause
 - `features/$FEATURE/plan.md` -- current plan with task statuses
 - `features/$FEATURE/spec.md` -- feature specification
 - `features/$FEATURE/review.md` -- code review results
+- `features/$FEATURE/verify.md` -- verification and benchmark summary
+- `features/$FEATURE/optimization-guidance.md` -- optimization guidance from vLLM-Opter
 
 Display feature artifact status:
 ```
@@ -110,6 +112,8 @@ Feature: $FEATURE
   Context: [exists/missing] (<N> decisions, <M> active blockers)
   Plan:    [exists/missing] (<done>/<total> tasks)
   Review:  [exists/missing] (verdict: <verdict>)
+  Verify:  [exists/missing] (smoke + benchmark summary)
+  Opt:     [exists/missing] (latest optimization guidance)
 ```
 
 **Wiki context** (explicit selection — do NOT auto-load):
@@ -182,7 +186,7 @@ Suggest next action based on restored state.
 **If HANDOFF was restored**: use `next_action` as primary suggestion:
 ```
 Suggested next step: <next_action from HANDOFF>
-  Command: <specific devflow command to run>
+  Command: <specific devteam command to run>
 ```
 
 **Otherwise**, suggest based on current phase:

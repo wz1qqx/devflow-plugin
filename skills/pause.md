@@ -1,7 +1,7 @@
 # Skill: pause
 
-<purpose>Save session state for zero-loss resume. Write HANDOFF.json, update STATE.md, prompt for knowledge sink. Nothing valuable should be lost between sessions.</purpose>
-<core_principle>Working memory is ephemeral -- anything worth keeping must be explicitly saved. HANDOFF.json captures precise position; STATE.md captures accumulated decisions. Knowledge worth persisting goes to the wiki.</core_principle>
+<purpose>Save session state for zero-loss resume. Write HANDOFF.json, update STATE.md, sync feature context, prompt for knowledge sink. Nothing valuable should be lost between sessions.</purpose>
+<core_principle>Working memory is ephemeral -- anything worth keeping must be explicitly saved. HANDOFF.json captures precise position; STATE.md captures workflow position; context.md captures feature-scoped decisions and blockers. Knowledge worth persisting goes to the wiki.</core_principle>
 
 <process>
 <step name="INIT" priority="first">
@@ -9,9 +9,9 @@ Load current project state and configuration.
 
 ```bash
 # Auto-discover devteam CLI (marketplace or local install)
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 
-INIT=$(node "$DEVFLOW_BIN" init pause)
+INIT=$(node "$DEVTEAM_BIN" init pause)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 ```
@@ -22,7 +22,7 @@ Gate: `workspace.yaml` must exist. If not: "No project found. Nothing to pause."
 <step name="GATHER_STATE">
 Collect current session state from all sources.
 
-1. **Read STATE.md** (if exists):
+	1. **Read STATE.md** (if exists):
    ```bash
    STATE_PATH="$WORKSPACE/.dev/STATE.md"
    ```
@@ -44,9 +44,9 @@ Collect current session state from all sources.
    TOTAL=$(grep -c '^\- \[' "$PLAN_PATH" 2>/dev/null || echo 0)
    ```
 
-5. **Collect decisions** made this session: scan recent STATE.md additions
+	5. **Collect decisions** made this session: scan feature `context.md` additions or in-memory decisions gathered during the session
 
-6. **Collect active blockers**: from STATE.md Blockers table where status=active
+	6. **Collect active blockers**: from feature `context.md` Active Blockers table
 
 7. **Identify next action**: what should the next session do first?
    - If mid-plan execution: "Continue task N of plan"
@@ -94,8 +94,8 @@ Update STATE.md with current position.
 
 If STATE.md does not exist, create from template:
 ```bash
-DEVFLOW_ROOT=$(dirname "$(dirname "$DEVFLOW_BIN")")
-TEMPLATE="$DEVFLOW_ROOT/templates/state.md"
+DEVTEAM_ROOT=$(dirname "$(dirname "$DEVTEAM_BIN")")
+TEMPLATE="$DEVTEAM_ROOT/templates/state.md"
 ```
 
 Update frontmatter fields:
@@ -119,7 +119,7 @@ Persist decisions and blockers to the feature-scoped context.md.
 
 ```bash
 CONTEXT_PATH="$WORKSPACE/.dev/features/$FEATURE/context.md"
-TEMPLATE="$DEVFLOW_ROOT/templates/context.md"
+TEMPLATE="$DEVTEAM_ROOT/templates/context.md"
 ```
 
 **Create if missing**: If context.md does not exist, copy from template and replace `{{feature}}` / `{{timestamp}}`.
@@ -177,7 +177,7 @@ This step is interactive -- wait for user response before proceeding.
 Record the pause in checkpoint log and produce final output.
 
 ```bash
-node "$DEVFLOW_BIN" checkpoint \
+node "$DEVTEAM_BIN" checkpoint \
   --action "pause" \
   --summary "Session paused. Feature: $FEATURE, Stage: $FEATURE_STAGE, Progress: $DONE/$TOTAL"
 ```

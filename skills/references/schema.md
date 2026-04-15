@@ -186,7 +186,7 @@ cluster: <string>               # Override cluster for this feature
         nsys_path: <path>              # Override nsys binary path (optional, auto-detected)
 
     ship:
-      strategy: docker | k8s | ci-cd
+      strategy: k8s                    # current implementation only supports k8s
       # ... existing build/deploy config fields
 
     build_history:                     # Last N entries (truncated by tuning.build_history_limit)
@@ -231,8 +231,8 @@ observability:
 ## Init 流程
 
 ```
-/devteam:init workspace      → 新建 workspace.yaml（workspace 级配置）
-/devteam:init feature <name> → 新建 .dev/features/<name>/config.yaml + 注册到 defaults.features
+/devteam init workspace      → 新建 workspace.yaml（workspace 级配置）
+/devteam init feature <name> → 新建 .dev/features/<name>/config.yaml + 注册到 defaults.features
 
 ```
 

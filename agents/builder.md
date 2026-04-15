@@ -14,18 +14,20 @@ and build history. You do NOT deploy — that is the Shipper's job.
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-build)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-build)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 CURRENT_TAG=$(echo "$INIT" | jq -r '.feature.current_tag')
 BASE_IMAGE=$(echo "$INIT" | jq -r '.feature.base_image')
 REGISTRY=$(echo "$INIT" | jq -r '.build_server.registry')
 BASE_IMAGE_NAME=$(echo "$INIT" | jq -r '.build.image_name // .feature.name')
+CLUSTER_NAME=$(echo "$INIT" | jq -r '.cluster.name // empty')
 BUILD_COMMANDS=$(echo "$INIT" | jq -r '.build.commands')
 BUILD_ENV=$(echo "$INIT" | jq -r '.build.env')
 REPOS=$(echo "$INIT" | jq -r '.repos | keys[]')
 BUILD_HISTORY=$(echo "$INIT" | jq -r '.build_history')
+BUILD_MODE=$(grep -m1 '^Build Mode:' ".dev/features/$FEATURE/plan.md" | sed 's/.*: *//')
 ```
 </context>
 
@@ -34,6 +36,7 @@ BUILD_HISTORY=$(echo "$INIT" | jq -r '.build_history')
 - If current_tag is empty, this is the first build — use base_image from config
 - Build commands must be configured in feature config.yaml or abort
 - Non-zero build exit code aborts the entire process
+- The orchestrator owns checkpoint and pipeline-state writes — do not update workflow state yourself
 </constraints>
 
 <workflow>
@@ -76,7 +79,7 @@ docker push "$REGISTRY/$BASE_IMAGE_NAME:$CONFIRMED_TAG"
 Record the build using the CLI (updates `current_tag` + appends to `build_history` + writes `build-manifest.md`):
 
 ```bash
-node "$DEVFLOW_BIN" build record \
+node "$DEVTEAM_BIN" build record \
   --tag "$CONFIRMED_TAG" \
   --base "$REGISTRY/$BASE_IMAGE_NAME:$CURRENT_TAG" \
   --changes "<one-line summary of what changed in this build>" \
@@ -84,12 +87,32 @@ node "$DEVFLOW_BIN" build record \
   --cluster "$CLUSTER_NAME"
 ```
 
-Then checkpoint:
-```bash
-node "$DEVFLOW_BIN" checkpoint --action build --summary "Built $CONFIRMED_TAG"
+Do NOT manually edit feature config.yaml for build history — use the CLI command above.
+</step>
+
+<step name="RETURN_RESULT">
+Return a short build report, then end with:
+
+## STAGE_RESULT
+```json
+{
+  "stage": "build",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "image", "tag": "registry/image:tag"},
+    {"kind": "build-manifest", "path": ".dev/features/$FEATURE/build-manifest.md"}
+  ],
+  "next_action": "Shipper can deploy the new image tag.",
+  "retryable": false,
+  "metrics": {
+    "build_mode": "fast",
+    "build_duration_sec": 0
+  }
+}
 ```
 
-Do NOT manually edit feature config.yaml for build history — use the CLI command above.
+If the build itself fails, use `status: "failed"`, set `retryable` truthfully, and explain the failing check or command before the JSON block.
 </step>
 
 </workflow>
@@ -98,6 +121,6 @@ Do NOT manually edit feature config.yaml for build history — use the CLI comma
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report: SendMessage(to: orchestrator, summary: "build complete", message: "Image: $REGISTRY/$IMAGE:$TAG pushed successfully")
+3. Report: SendMessage(to: orchestrator, summary: "build complete", message: "<build report>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. All coordination through orchestrator
 </team>

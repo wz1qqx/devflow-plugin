@@ -17,8 +17,8 @@ the recommended changes — never rewrite the entire plan.
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-plan)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-plan)
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 REPOS=$(echo "$INIT" | jq -r '.repos | to_entries[] | .key')
@@ -52,6 +52,7 @@ Load:
 - Build mode detected from file types: .py only=fast, .rs/.c/.cpp=rust/full, mixed=full
 - Tasks MUST include `files_to_read` block
 - Tasks targeting >200 lines changed should be split
+- The orchestrator owns checkpoint and pipeline-state writes — do not update workflow state yourself
 </constraints>
 
 <workflow>
@@ -90,12 +91,12 @@ For each unit of work, create a task with:
 - **files_to_read**: list of files executor must read for context
 - **action**: detailed implementation instructions
 - **depends_on**: list of task IDs (empty if independent)
-- **delegation**: `subagent` if `depends_on` is empty (Wave 1, parallel-safe); `direct` otherwise
+- **delegation**: `subagent_candidate` if `depends_on` is empty (independent and future fan-out safe); `direct` otherwise
 </step>
 
 <step name="WAVE_GROUPING">
 Group tasks into execution waves:
-- Wave 1: tasks with no dependencies (parallel)
+- Wave 1: tasks with no dependencies (independent; current executor still runs serially)
 - Wave 2: tasks depending only on Wave 1
 - Wave N: tasks depending on Wave N-1 or earlier
 </step>
@@ -119,7 +120,7 @@ Spec: .dev/features/<feature>/spec.md
 Build Mode: fast | rust | full
 Tasks: N | Waves: M
 
-## Wave 1 (parallel)
+## Wave 1 (independent)
 
 ### Task 1: <title>
 - **Repo**: <repo>
@@ -152,12 +153,37 @@ Tasks: N | Waves: M
 If any CRITICAL issue found, fix the plan and re-verify.
 </step>
 
+<step name="RETURN_RESULT">
+Return a short planning summary, then end with:
+
+## STAGE_RESULT
+```json
+{
+  "stage": "plan",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "plan", "path": ".dev/features/$FEATURE/plan.md"}
+  ],
+  "next_action": "Coder can execute the plan in dependency order.",
+  "retryable": false,
+  "metrics": {
+    "task_count": 0,
+    "wave_count": 0,
+    "build_mode": "fast"
+  }
+}
+```
+
+If blocked, set `status` to `failed` or `needs_input`, keep `artifacts` and `metrics` truthful, and explain the blocker before the JSON block.
+</step>
+
 </workflow>
 
 <team>
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report: SendMessage(to: orchestrator, summary: "plan complete", message: "Plan: N tasks in M waves. Build mode: <mode>. Path: .dev/features/$FEATURE/plan.md")
+3. Report: SendMessage(to: orchestrator, summary: "plan complete", message: "<planning summary>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. All coordination through orchestrator
 </team>

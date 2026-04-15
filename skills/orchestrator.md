@@ -14,6 +14,8 @@ verifier FAIL → vllm-opter → planner re-plan), and cleans up when done.
 Agents are spawned using their native subagent_type (e.g., "devteam:coder") so that tool
 restrictions and permissionMode from their frontmatter are enforced by Claude Code.
 The orchestrator owns all user interaction (AskUserQuestion) since plugin agents cannot use it.
+The orchestrator also owns all checkpoint and pipeline-state writes. Agents report outcomes;
+the orchestrator decides whether a stage is accepted.
 </core_principle>
 
 <process>
@@ -22,7 +24,7 @@ The orchestrator owns all user interaction (AskUserQuestion) since plugin agents
 Initialize workflow context and parse arguments.
 
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 ```
 
 Parse from $ARGUMENTS:
@@ -35,9 +37,9 @@ Parse from $ARGUMENTS:
 ```bash
 FEATURE="$1"
 if [ -n "$FEATURE" ]; then
-  INIT=$(node "$DEVFLOW_BIN" init team --feature "$FEATURE")
+  INIT=$(node "$DEVTEAM_BIN" init team --feature "$FEATURE")
 else
-  INIT=$(node "$DEVFLOW_BIN" init team)
+  INIT=$(node "$DEVTEAM_BIN" init team)
 fi
 WORKSPACE=$(echo "$INIT" | jq -r '.workspace')
 ```
@@ -65,7 +67,10 @@ MAX_LOOPS=$(echo "$INIT" | jq -r '.tuning.max_optimization_loops // 3')
 `pipeline_stages` matches current `STAGES`:
 - Ask user: "Previous pipeline was interrupted after [completed]. Resume from [next]? Or restart?"
 - If resume: set STAGES to remaining uncompleted stages
-- If restart: clear `completed_stages`
+- If restart:
+  ```bash
+  node "$DEVTEAM_BIN" pipeline reset
+  ```
 
 Gates:
 - workspace.yaml must exist
@@ -80,8 +85,7 @@ Create the team and task list — only for selected stages.
 
 2. Record pipeline stages in STATE.md:
 ```bash
-node "$DEVFLOW_BIN" state update pipeline_stages "$STAGES_CSV"
-node "$DEVFLOW_BIN" state update completed_stages ""
+node "$DEVTEAM_BIN" pipeline init --stages "$STAGES_CSV"
 ```
 
 3. Create tasks dynamically — only for stages in STAGES:
@@ -110,6 +114,62 @@ Max optimization loops: $MAX_LOOPS
 ```
 </step>
 
+<step name="STAGE_RESULT_PROTOCOL">
+All stage agents must follow `skills/references/stage-result-contract.md`.
+
+After every `Agent(...)` + wait cycle:
+1. Capture the final agent message.
+2. Resolve it through the high-level orchestration helper:
+   ```bash
+   printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+     --stage "<stage-name>" \
+     [--report-path "$WORKSPACE/.dev/features/$FEATURE/<artifact>.md"] \
+     [--summary "<checkpoint summary>"] \
+     [--review-cycle "$review_cycle" --max-review-cycles "$max_review_cycles"]
+   ```
+3. Validate required keys:
+   - `stage`
+   - `status`
+   - `verdict`
+   - `artifacts`
+   - `next_action`
+   - `retryable`
+   - `metrics`
+4. Validate `stage` matches the current stage name exactly.
+5. Use the helper output as the single source of truth for branching logic.
+   Branch only on fixed `decision` payload fields:
+   - `decision`
+   - `reason`
+   - `needs_user_input`
+   - `retryable`
+   - `next_action`
+   - `user_prompt`
+   - `loop_context`
+   - `remediation_items`
+   - `regressions`
+   Do not branch on stage-specific prose in the raw agent report.
+   Decision mapping:
+   - `decision == accept` → the stage has already been accepted and checkpointed
+   - `decision == review_fix_loop` → feed `remediation_items` back to coder
+   - `decision == optimization_loop` → feed `regressions` to vLLM-Opter
+   - `decision == retry` → offer retry before aborting
+   - `decision == needs_input` → AskUserQuestion before proceeding using `user_prompt` (fallback to `next_action`)
+6. If the JSON block is missing or malformed, send one corrective message to the same agent:
+   "Resend your final message with a valid STAGE_RESULT JSON block and no prose after it."
+7. If the agent still fails to comply, treat the stage as failed and AskUserQuestion for retry/abort guidance.
+
+Checkpoint ownership:
+- Agents do NOT update `feature_stage`, `completed_stages`, or workflow checkpoints.
+- After a stage is accepted, the orchestration helper appends the stage to `completed_stages`,
+  updates `feature_stage`, and writes the stage checkpoint summary.
+
+Stage acceptance rules:
+- `status == "completed"` and `verdict in [PASS, PASS_WITH_WARNINGS]` → stage accepted
+- `status == "completed"` and `verdict == FAIL` → stage logic completed but found blocking issues
+- `status == "failed"` → execution failure, retry/escalate path
+- `status == "needs_input"` or `verdict == NEEDS_INPUT` → AskUserQuestion before proceeding
+</step>
+
 <step name="RUN_SPEC">
 **Guard: skip if "spec" not in STAGES.**
 
@@ -126,12 +186,14 @@ Agent(
     Your task ID: $T_SPEC_ID"
 )
 ```
-4. Wait for completion. Verify `spec.md` exists.
-5. Checkpoint:
-```bash
-node "$DEVFLOW_BIN" state update completed_stages "spec"
-node "$DEVFLOW_BIN" state update feature_stage "spec"
-```
+4. Wait for completion, then resolve the stage:
+   ```bash
+   printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+     --stage spec \
+     --summary "Spec complete for $FEATURE"
+   ```
+5. Require `decision == accept`.
+6. Verify `spec.md` exists and the acceptance payload references stage `spec`.
 </step>
 
 <step name="RUN_PLAN">
@@ -149,8 +211,18 @@ Agent(
 )
 ```
 
-Wait for completion. Verify `plan.md` exists.
-Checkpoint: append "plan" to `completed_stages`, update `feature_stage`.
+Wait for completion, then resolve the stage:
+```bash
+printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+  --stage plan \
+  --summary "Plan complete for $FEATURE"
+```
+
+Require:
+- `decision == accept`
+- metrics include `task_count`, `wave_count`, and `build_mode`
+
+Verify `plan.md` exists.
 </step>
 
 <step name="RUN_CODE">
@@ -168,8 +240,21 @@ Agent(
 )
 ```
 
-Wait for completion.
-Checkpoint: append "code" to `completed_stages`, update `feature_stage`.
+Wait for completion, then resolve the stage:
+```bash
+printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+  --stage code \
+  --summary "Code complete for $FEATURE"
+```
+
+Branch on resolved decision:
+- `accept`:
+  capture commit artifacts for the user-facing summary
+  require at least one `commit` artifact unless the plan explicitly contained zero executable tasks
+- `retry`:
+  AskUserQuestion for retry / abort
+- `needs_input`:
+  AskUserQuestion with the agent's blocking reason or remediation items
 </step>
 
 <step name="RUN_REVIEW">
@@ -194,12 +279,26 @@ Agent(
 )
 ```
 
-Parse verdict:
-- **PASS** or **PASS_WITH_WARNINGS** → checkpoint "review", proceed
-- **FAIL** →
-  1. Extract remediation items
-  2. If review_cycle < max_review_cycles: re-spawn coder with FIX_CONTEXT, then re-spawn reviewer, review_cycle++
-  3. Else: AskUserQuestion for guidance
+Resolve the stage:
+```bash
+printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+  --stage review \
+  --report-path "$WORKSPACE/.dev/features/$FEATURE/review.md" \
+  --review-cycle "$review_cycle" \
+  --max-review-cycles "$max_review_cycles"
+```
+
+Require review metrics to include `finding_counts`.
+
+Branch on resolved decision:
+- `accept`: proceed
+- `review_fix_loop`:
+  1. Extract `remediation_items`
+  2. Re-spawn coder with FIX_CONTEXT from `remediation_items`, then re-spawn reviewer, review_cycle++
+- `retry`:
+  AskUserQuestion for retry / abort
+- `needs_input`:
+  AskUserQuestion for guidance
 </step>
 
 <step name="RUN_BUILD">
@@ -215,9 +314,24 @@ Agent(
 )
 ```
 
-Wait for completion. Extract `$NEW_TAG` from builder's message.
-If failure: AskUserQuestion (retry / abort).
-Checkpoint: append "build" to `completed_stages`, update `feature_stage`.
+Wait for completion, then resolve the stage:
+```bash
+printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+  --stage build \
+  --summary "Build complete for $FEATURE"
+```
+
+Require:
+- image artifact with `tag`
+- build-manifest artifact path
+
+Branch on resolved decision:
+- `accept`:
+  extract `$NEW_TAG` from the image artifact
+- `retry`:
+  AskUserQuestion for retry / abort
+- `needs_input`:
+  AskUserQuestion for next step
 </step>
 
 <step name="RUN_SHIP">
@@ -240,8 +354,19 @@ Agent(
 )
 ```
 
-If failure: AskUserQuestion (retry / abort).
-Checkpoint: append "ship" to `completed_stages`, update `feature_stage`.
+Wait for completion, then resolve the stage:
+```bash
+printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+  --stage ship \
+  --summary "Ship complete for $FEATURE"
+```
+
+Require ship metrics to include readiness and health-check outcome before considering the stage accepted.
+
+Branch on resolved decision:
+- `accept`: proceed
+- `retry`: AskUserQuestion (retry / abort)
+- `needs_input`: AskUserQuestion for next step
 </step>
 
 <step name="RUN_VERIFY">
@@ -258,9 +383,23 @@ Agent(
 )
 ```
 
-Verdict:
-- **PASS** → checkpoint "verify", go to CLEANUP
-- **FAIL** → go to OPTIMIZATION_LOOP
+Resolve the stage:
+```bash
+printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+  --stage verify \
+  --report-path "$WORKSPACE/.dev/features/$FEATURE/verify.md"
+```
+
+Require metrics include smoke counts and regression threshold.
+
+Branch on resolved decision:
+- `accept` → go to CLEANUP
+- `optimization_loop`:
+  capture `VERIFIER_METRICS` from the resolved payload, then go to OPTIMIZATION_LOOP
+- `retry`:
+  AskUserQuestion (retry / abort)
+- `needs_input`:
+  AskUserQuestion for next step
 </step>
 
 <step name="OPTIMIZATION_LOOP">
@@ -272,7 +411,10 @@ loop_count = 0
 
 While verifier FAIL and loop_count < MAX_LOOPS:
 
-1. Checkpoint: `node "$DEVFLOW_BIN" state update pipeline_loop_count "$loop_count"`
+1. Checkpoint:
+   ```bash
+   node "$DEVTEAM_BIN" pipeline loop --count "$loop_count"
+   ```
 
 2. Spawn vLLM-Opter:
 ```
@@ -287,9 +429,16 @@ Agent(
 )
 ```
 
-3. Wait for optimization guidance
+3. Wait for optimization guidance, then resolve the stage:
+   ```bash
+   printf '%s' "$AGENT_MESSAGE" | node "$DEVTEAM_BIN" orchestration resolve-stage \
+     --stage vllm-opt \
+     --report-path "$WORKSPACE/.dev/features/$FEATURE/optimization-guidance.md"
+   ```
 
-4. Re-run sub-pipeline (only stages that make sense for optimization):
+4. Require `decision == accept` and guidance artifact path or guidance metrics sufficient for planner input.
+
+5. Re-run sub-pipeline (only stages that make sense for optimization):
    - RUN_PLAN (with OPTIMIZATION_CONTEXT)
    - RUN_CODE
    - RUN_REVIEW
@@ -297,7 +446,7 @@ Agent(
    - RUN_SHIP
    - RUN_VERIFY
 
-5. `loop_count++`
+6. `loop_count++`
 
 If exhausted:
 ```
@@ -313,18 +462,12 @@ Pipeline complete.
 
 1. Update phase:
 ```bash
-node "$DEVFLOW_BIN" state update phase completed
-node "$DEVFLOW_BIN" state update completed_stages "$ALL_COMPLETED_CSV"
+node "$DEVTEAM_BIN" pipeline complete --stages "$ALL_COMPLETED_CSV" --summary "Pipeline complete for $FEATURE"
 ```
 
-2. Checkpoint:
-```bash
-node "$DEVFLOW_BIN" checkpoint --action "team-complete" --summary "Pipeline complete for $FEATURE"
-```
+2. `TeamDelete`
 
-3. `TeamDelete`
-
-4. Report summary:
+3. Report summary:
 ```
 Pipeline Complete: $FEATURE
   Stages: $STAGES_CSV

@@ -14,8 +14,8 @@ pod readiness polling, and health checks.
 
 <context>
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init team-deploy)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init team-deploy)
 CLUSTER_NAME=$(echo "$INIT" | jq -r '.cluster.name')
 NAMESPACE=$(echo "$INIT" | jq -r '.cluster.namespace')
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
@@ -36,6 +36,7 @@ Receive image tag from orchestrator via task description or prompt context.
 - Production clusters (safety: prod): orchestrator confirms with user BEFORE spawning you — your prompt will contain [CONFIRMED]
 - Never deploy without a rollback target identified
 - Post-deploy hooks are non-blocking: warn on failure but do not abort
+- The orchestrator owns checkpoint and pipeline-state writes — do not update workflow state yourself
 </constraints>
 
 <workflow>
@@ -148,12 +149,32 @@ if [ -n "$POST_HOOK" ]; then
   $SSH "$POST_HOOK" || echo "[WARN] post_deploy hook failed"
 fi
 ```
+</step>
 
-2. Update state and checkpoint:
-```bash
-node "$DEVFLOW_BIN" state update phase ship
-node "$DEVFLOW_BIN" checkpoint --action "ship" --summary "Deployed $TAG to $CLUSTER_NAME/$NAMESPACE"
+<step name="RETURN_RESULT">
+Return a short deployment report, then end with:
+
+## STAGE_RESULT
+```json
+{
+  "stage": "ship",
+  "status": "completed",
+  "verdict": "PASS",
+  "artifacts": [
+    {"kind": "deploy", "ref": "deployment/$DGD_NAME", "notes": "$CLUSTER_NAME/$NAMESPACE"}
+  ],
+  "next_action": "Verifier can run smoke and benchmark checks against the deployment.",
+  "retryable": false,
+  "metrics": {
+    "ready_pods": 0,
+    "total_pods": 0,
+    "health_status": "ok",
+    "first_request_latency_ms": 0
+  }
+}
 ```
+
+If deployment execution fails, use `status: "failed"`, keep metrics truthful, and explain the failing check before the JSON block.
 </step>
 
 </workflow>
@@ -162,6 +183,6 @@ node "$DEVFLOW_BIN" checkpoint --action "ship" --summary "Deployed $TAG to $CLUS
 ## Team Protocol
 1. On start: TaskUpdate(taskId, status: "in_progress")
 2. On completion: TaskUpdate(taskId, status: "completed")
-3. Report: SendMessage(to: orchestrator, summary: "deploy complete", message: "Deployed $TAG to $CLUSTER/$NAMESPACE. Pods: N/N ready. Health: OK")
+3. Report: SendMessage(to: orchestrator, summary: "deploy complete", message: "<deployment report>\n\n## STAGE_RESULT\n```json\n{...}\n```")
 4. All coordination through orchestrator
 </team>

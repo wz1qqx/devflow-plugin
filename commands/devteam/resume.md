@@ -8,7 +8,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Restore worktree state, active tasks, and pending items from workspace.yaml and state files.
+Restore session state from HANDOFF.json, STATE.md, and feature context.md.
 </objective>
 
 <execution_context>
@@ -22,11 +22,11 @@ $ARGUMENTS
 <process>
 **Step 1**: Discover CLI tool and load config:
 ```bash
-DEVFLOW_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
-INIT=$(node "$DEVFLOW_BIN" init resume)
+DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
+INIT=$(node "$DEVTEAM_BIN" init resume)
 ```
 
-If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVFLOW_BIN" init resume --feature $SELECTED)`
+If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init resume --feature $SELECTED)`
 
 **Step 2**: Read the skill file and execute it end-to-end:
 ```bash
