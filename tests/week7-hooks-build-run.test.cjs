@@ -147,7 +147,7 @@ function testRunSnapshotHooksAndBuildChainIntegration() {
   assert.strictEqual(build1.parent_image, 'nvcr.io/base/model:1.0');
   assert.strictEqual(build2.parent_image, 'registry.example.com/feat-a-image:v1');
   assert.strictEqual(build2.run_id, run.run.run_id);
-  assert.ok(build2.source_refs.includes(`repo-a@${head}`));
+  assert.ok(build2.source_refs.some(ref => ref.repo === 'repo-a' && ref.start_head === head));
 
   const hookLog = readHookLog(logPath);
   assert.deepStrictEqual(hookLog, ['pre-build', 'learned-pre', 'post-build', 'learned-post']);

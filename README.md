@@ -71,6 +71,7 @@ The orchestrator owns all `AskUserQuestion` calls — plugin agents cannot use i
 | `node lib/devteam.cjs run init --feature <name> --stages <csv>` | Create or reuse `.dev/features/<feature>/RUN.json` |
 | `node lib/devteam.cjs run get --feature <name>` | Read the active run snapshot |
 | `node lib/devteam.cjs run reset --feature <name>` | Remove active run snapshot before restart |
+| `node lib/devteam.cjs run check-path --feature <name> --path <file>` | Enforce run-scoped writable path boundaries from `RUN.json` |
 | `node lib/devteam.cjs tasks sync-from-plan --feature <name>` | Generate authoritative `.dev/features/<feature>/tasks.json` from `plan.md` |
 | `node lib/devteam.cjs tasks update --feature <name> --id <task-id> --status <status>` | Update machine task status for code/pause/resume |
 | `node lib/devteam.cjs hooks run --feature <name> --phase <phase>` | Execute normalized phase hooks + matching learned hooks |
@@ -183,8 +184,9 @@ printf '%s' "$AGENT_MESSAGE" | node lib/devteam.cjs stage-result decide --stage 
 printf '%s' "$AGENT_MESSAGE" | node lib/devteam.cjs stage-result accept --stage review --report-path .dev/features/my-feature/review.md
 node lib/devteam.cjs run init --feature my-feature --stages code,review,build
 node lib/devteam.cjs run get --feature my-feature
+node lib/devteam.cjs run check-path --feature my-feature --path /abs/path/to/file
 node lib/devteam.cjs run reset --feature my-feature
-node lib/devteam.cjs build record --feature my-feature --tag v2 --changes "optimize decode path" --mode fast
+node lib/devteam.cjs build record --feature my-feature --tag v2 --changes "optimize decode path" --run-path .dev/features/my-feature/RUN.json --mode fast
 node lib/devteam.cjs pipeline init --feature my-feature --stages code,review,build
 node lib/devteam.cjs pipeline loop --feature my-feature --count 1
 node lib/devteam.cjs pipeline complete --feature my-feature --stages code,review,build --summary "Pipeline complete for my-feature"
@@ -377,12 +379,15 @@ Build records distinguish:
 - `resulting_image` / `resulting_tag`
 
 `build record` also captures run-scoped repo SHA context from `RUN.json` (`source_refs`) so build provenance is tied to the frozen run snapshot.
+When `--run-path <path/to/RUN.json>` is provided, provenance comes from that explicit snapshot; otherwise it defaults to `.dev/features/<feature>/RUN.json`.
+`build-manifest.md` includes a `## Source Refs` section with per-tag repo/branch/SHA rows.
 
 ### Repo Topology Model
 
 - `remotes` models official/corp/personal Git remotes explicitly (legacy `upstream` still mapped to `remotes.official`).
 - `baselines` are normalized baseline objects (`id`, `ref`, `worktree`, `read_only`) instead of anonymous `ref -> path` only.
 - `dev_slots` represent reusable writable worktree slots and are referenced by feature `scope.<repo>.dev_slot`.
+- Slot ownership is enforced at `pipeline init`: conflicting active runs on the same `dev_worktree` are blocked unless `--allow-slot-conflict` is explicitly passed, or the slot is `sharing_mode: shared` and both features are listed in `owner_features`.
 
 ### Namespace Safety
 

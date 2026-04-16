@@ -77,6 +77,10 @@ repos:
         baseline_ref: <ref>          # optional fallback when baseline_id omitted
         sharing_mode: exclusive | shared
         owner_features: [<feature>, ...]
+        # Runtime semantics:
+        # - pipeline init blocks when two active runs target the same worktree
+        # - sharing_mode: shared exempts conflict only when both features are listed in owner_features
+        # - --allow-slot-conflict bypasses remaining conflicts explicitly
 
 # ═══════════════════════════════════════
 # 默认值
@@ -123,7 +127,6 @@ scope:                          # 涉及哪些 repo
     base_ref: <tag|commit>      # Optional override; otherwise derived from slot baseline
     # Legacy compatibility:
     # dev_worktree: <dir|null>
-    # shared_with: <feature>
     build_type: <string>        # Optional: e.g. "wheel"
 
 # 生命周期状态
@@ -273,11 +276,17 @@ cluster: <string>               # Override cluster for this feature
         cluster: <string>              # Cluster deployed to
         note: <string>                 # Optional free-form note
         run_id: <string|null>          # RUN.json run_id if available
-        source_refs: [<repo@sha>, ...] # Repo/SHA identity captured from RUN.json
+        source_refs:
+          - repo: <repo-name>
+            start_branch: <branch|null>
+            start_head: <sha|null>
+            dev_worktree: <absolute-path|null>
+          # Legacy compact string form [<repo@sha>, ...] is still readable for backward compatibility
         source_repos: [<repo>, ...]    # Participating repos from RUN.json
 
 # Build history is written via CLI — NEVER manually edit build_history or current_tag:
-#   node devteam.cjs build record --tag <tag> --changes "<summary>" \
+#   node devteam.cjs build record --feature <name> --tag <tag> --changes "<summary>" \
+#     [--run-path .dev/features/<name>/RUN.json] \
 #     [--parent-image <image>] [--fallback-base-image <image>] [--result-image <image>] \
 #     [--mode fast|rust|full] [--cluster <name>] [--note "<note>"]
 #

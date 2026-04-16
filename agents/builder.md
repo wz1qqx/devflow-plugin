@@ -108,6 +108,7 @@ node "$DEVTEAM_BIN" build record \
   --feature "$FEATURE" \
   --tag "$CONFIRMED_TAG" \
   --changes "<one-line summary of what changed in this build>" \
+  --run-path "$RUN_PATH" \
   --parent-image "$PARENT_IMAGE" \
   --fallback-base-image "$FALLBACK_BASE_IMAGE" \
   --result-image "$RESULT_IMAGE" \

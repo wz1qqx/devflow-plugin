@@ -100,7 +100,7 @@ function testBuildRecordCapturesIncrementalParentAndRunRefs() {
   assert.strictEqual(result.resulting_image, 'registry.example.com/feat-a-image:v2');
   assert.strictEqual(result.run_id, run.run.run_id);
   assert.ok(Array.isArray(result.source_refs));
-  assert.ok(result.source_refs.includes(`repo-a@${head}`));
+  assert.ok(result.source_refs.some(ref => ref.repo === 'repo-a' && ref.start_head === head));
 
   const cfg = runCli(root, ['config', 'load']);
   const entry = cfg.features['feat-a'].build_history[0];
@@ -113,7 +113,7 @@ function testBuildRecordCapturesIncrementalParentAndRunRefs() {
   assert.strictEqual(entry.run_id, run.run.run_id);
   assert.deepStrictEqual(entry.source_repos, ['repo-a']);
   assert.ok(Array.isArray(entry.source_refs));
-  assert.ok(entry.source_refs.includes(`repo-a@${head}`));
+  assert.ok(entry.source_refs.some(ref => ref.repo === 'repo-a' && ref.start_head === head));
 
   const manifest = fs.readFileSync(path.join(root, '.dev', 'features', 'feat-a', 'build-manifest.md'), 'utf8');
   assert.match(manifest, /registry\.example\.com\/feat-a-image:v1/);
