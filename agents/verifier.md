@@ -20,12 +20,25 @@ DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/de
 INIT=$(node "$DEVTEAM_BIN" init team-verify)
 FEATURE=$(echo "$INIT" | jq -r '.feature.name')
 RUN_PATH=$(echo "$INIT" | jq -r '.run.path // empty')
+SHIP_STRATEGY=$(echo "$INIT" | jq -r '.ship.strategy // "k8s"')
+# k8s-specific
 SSH=$(echo "$INIT" | jq -r '.cluster.ssh')
 SSH_HOST=$(echo "$SSH" | grep -oE '[^ ]+@[^ ]+' | tail -1)
+REMOTE_CMD="$SSH"
 NAMESPACE=$(echo "$INIT" | jq -r '.cluster.namespace')
 DGD_NAME=$(echo "$INIT" | jq -r '.deploy.dgd_name // "vllm"')
 SVC_URL=$(echo "$INIT" | jq -r '.deploy.service_url // empty')
 MODEL_NAME=$(echo "$INIT" | jq -r '.deploy.model_name // empty')
+# bare_metal-specific (overrides k8s SSH/SVC when active)
+METAL_HOST=$(echo "$INIT" | jq -r '.ship.metal.host // empty')
+METAL_SERVICE_URL=$(echo "$INIT" | jq -r '.ship.metal.service_url // empty')
+METAL_LOG_DECODE=$(echo "$INIT" | jq -r '.ship.metal.log_paths.decode // "/tmp/dynamo-decode.log"')
+METAL_LOG_PREFILL=$(echo "$INIT" | jq -r '.ship.metal.log_paths.prefill // "/tmp/dynamo-prefill.log"')
+if [ "$SHIP_STRATEGY" = "bare_metal" ]; then
+  SSH_HOST="$METAL_HOST"
+  REMOTE_CMD="ssh $METAL_HOST"
+  SVC_URL="${METAL_SERVICE_URL:-$SVC_URL}"
+fi
 BENCH_OUTPUT_DIR=$(echo "$INIT" | jq -r '.benchmark.output_dir // "bench-results"')
 REGRESSION_THRESHOLD=$(echo "$INIT" | jq -r '.tuning.regression_threshold // 20')
 CURRENT_TAG=$(echo "$INIT" | jq -r '.feature.current_tag')
@@ -64,27 +77,34 @@ Run `$SMOKE_COUNT` smoke checks (warmup `$WARMUP_COUNT` first, then validate).
 ```bash
 # Warmup
 for i in $(seq 1 $WARMUP_COUNT); do
-  $SSH "$SMOKE_CMD" > /dev/null
+  $REMOTE_CMD "$SMOKE_CMD" > /dev/null
 done
 # Test
 PASS_COUNT=0
 for i in $(seq 1 $SMOKE_COUNT); do
-  $SSH "$SMOKE_CMD" && PASS_COUNT=$((PASS_COUNT + 1))
+  $REMOTE_CMD "$SMOKE_CMD" && PASS_COUNT=$((PASS_COUNT + 1))
 done
 ```
 
 **If `$SMOKE_CMD` is empty**: fall back to generic health + inference check:
 ```bash
 # 1. Health endpoint
-$SSH "curl -sf -o /dev/null -w '%{http_code}' http://$SVC_URL/health"
+$REMOTE_CMD "curl -sf -o /dev/null -w '%{http_code}' http://$SVC_URL/health"
 # 2. Core inference request
-$SSH "curl -sf http://$SVC_URL/v1/completions -H 'Content-Type: application/json' \
+$REMOTE_CMD "curl -sf http://$SVC_URL/v1/completions -H 'Content-Type: application/json' \
   -d '{\"model\": \"$MODEL_NAME\", \"prompt\": \"Hello\", \"max_tokens\": 5, \"temperature\": 0}'"
 ```
 
 **Log check** (always):
 ```bash
-$SSH "kubectl logs -l $POD_SELECTOR -n $NAMESPACE --tail=100 | grep -i 'error\|fatal' | head -10"
+if [ "$SHIP_STRATEGY" = "bare_metal" ]; then
+  # bare_metal: check remote log files directly via SSH
+  $REMOTE_CMD "grep -i 'ERROR\|Traceback\|fatal' $METAL_LOG_DECODE 2>/dev/null | tail -10"
+  $REMOTE_CMD "grep -i 'ERROR\|Traceback\|fatal' $METAL_LOG_PREFILL 2>/dev/null | tail -10"
+else
+  # k8s: check pod logs
+  $REMOTE_CMD "kubectl logs -l $POD_SELECTOR -n $NAMESPACE --tail=100 | grep -i 'error\|fatal' | head -10"
+fi
 ```
 
 Result: PASS ($SMOKE_COUNT/$SMOKE_COUNT) or FAIL
@@ -115,9 +135,9 @@ BASE_CMD=$(echo "$MTB_CMD" \
 
 **Run 3x**:
 ```bash
-$SSH "rm -rf /tmp/bench-results && mkdir -p /tmp/bench-results"
+$REMOTE_CMD "rm -rf /tmp/bench-results && mkdir -p /tmp/bench-results"
 for RUN in 1 2 3; do
-  $SSH "cd $MTB_DIR && $BASE_CMD --result-filename bench-${CURRENT_TAG}-run${RUN}.json"
+  $REMOTE_CMD "cd $MTB_DIR && $BASE_CMD --result-filename bench-${CURRENT_TAG}-run${RUN}.json"
 done
 ```
 

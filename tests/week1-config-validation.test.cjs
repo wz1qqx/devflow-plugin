@@ -93,7 +93,7 @@ function testFlowMappingsParseAsMappings() {
   assert.deepStrictEqual(config.features['feat-a'].invariants, {});
   assert.deepStrictEqual(config.features['feat-a'].hooks.pre_build, []);
   assert.deepStrictEqual(config.features['feat-a'].hooks.post_build, []);
-  assert.deepStrictEqual(config.features['feat-a'].ship, {});
+  assert.deepStrictEqual(config.features['feat-a'].ship, { strategy: null, metal: null });
   assert.deepStrictEqual(config.features['feat-a'].build, {});
   assert.deepStrictEqual(config.features['feat-a'].deploy, {});
   assert.deepStrictEqual(config.features['feat-a'].benchmark, {});
@@ -111,7 +111,7 @@ function testFlowMappingsParseAsMappings() {
   assert.deepStrictEqual(teamInit.all_clusters, {});
 
   const featureInit = runCli(root, ['init', 'feature', 'feat-a']);
-  assert.deepStrictEqual(featureInit.ship, {});
+  assert.deepStrictEqual(featureInit.ship, { strategy: null, metal: null });
   assert.deepStrictEqual(featureInit.build, {});
   assert.deepStrictEqual(featureInit.deploy, {});
   assert.deepStrictEqual(featureInit.benchmark, {});
@@ -195,7 +195,7 @@ function testNullOptionalFeatureMappingsNormalizeToEmptyObjects() {
   });
 
   const config = runCli(root, ['config', 'load']);
-  assert.deepStrictEqual(config.features['feat-a'].ship, {});
+  assert.deepStrictEqual(config.features['feat-a'].ship, { strategy: null, metal: null });
   assert.deepStrictEqual(config.features['feat-a'].build, {});
   assert.deepStrictEqual(config.features['feat-a'].deploy, {});
   assert.deepStrictEqual(config.features['feat-a'].benchmark, {});
