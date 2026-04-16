@@ -630,3 +630,312 @@ Before ending any substantial phase, run:
 ```bash
 for f in tests/*.test.cjs; do node "$f" || exit 1; done
 ```
+
+## Post-Commit Review Addendum
+
+This addendum is based on a follow-up review of commit `a18396c`:
+
+- Commit: `a18396c`
+- Message: `refactor: harden runtime state contracts for multi-repo orchestration`
+
+The phase work landed successfully and the full current test suite is green, including week6/week7.
+However, the review found several remaining runtime gaps that are important for real multi-feature use.
+
+This section is the immediate continuation plan for the next coding window.
+Treat it as higher priority than any new feature work.
+
+### Current Review Status
+
+Verified in review:
+
+1. Full repo test suite passes:
+   - week1
+   - week2
+   - week3
+   - week4
+   - week5
+   - week6
+   - week7
+2. `RUN.json`, `tasks.json`, hooks runner, build-chain recording, and schema evolution are implemented.
+3. Multi-repo and multi-slot coverage exists, but several edge conditions are still not enforced strongly enough.
+
+### Remaining High-Priority Issues
+
+These are the specific gaps that still need modification.
+
+#### Issue A: Missing `--feature` On Multi-Feature Runtime Calls
+
+Problem:
+
+Several prompt-layer CLI calls still rely on implicit feature resolution even though the repo now supports multi-feature workspaces.
+This breaks in real multi-feature runs.
+
+Known affected areas:
+
+1. `skills/orchestrator.md`
+   - `orchestration resolve-stage`
+   - `pipeline complete`
+2. `agents/builder.md`
+   - `build record`
+
+Root cause:
+
+These commands eventually call helpers that use `requireFeature(...)`.
+In a workspace with more than one feature, they fail unless `--feature` is passed explicitly.
+
+Required outcome:
+
+Every runtime CLI call that depends on feature selection must pass `--feature "$FEATURE"` explicitly.
+
+#### Issue B: Invalid Run Identity Still Passes Pipeline Gate
+
+Problem:
+
+`RUN.json` currently records missing dev worktrees as a status summary, but does not block pipeline readiness.
+A run with `dev_worktree_missing` can still report `ready_for_pipeline: true`, and `pipeline init` can still succeed.
+
+This is wrong for the intended contract.
+
+Dirty worktree is a user decision branch.
+Missing worktree / invalid git identity is a hard execution error.
+
+Required outcome:
+
+Run gating must reject invalid execution identities before plan/code/review/build start.
+
+At minimum, these conditions must block readiness:
+
+1. missing `dev_worktree`
+2. `dev_worktree` path exists but is not a git repo
+3. `start_head` cannot be resolved
+
+#### Issue C: Hooks Runner Still Reads Live Repo Topology
+
+Problem:
+
+`hooks run` reads `RUN.json` for run path / run id, but repo/worktree topology still comes from live config resolution.
+If a feature's dev slot is changed after run init, hooks drift to the new slot instead of staying frozen to the run snapshot.
+
+This violates the run snapshot contract.
+
+Required outcome:
+
+Hook execution must bind to frozen run repos/worktrees whenever `RUN.json` exists.
+
+#### Issue D: `tasks.json` Summary Semantics For `skipped` Are Inconsistent
+
+Problem:
+
+`remaining_tasks` is currently computed as `total - completed`, while `next_task` excludes `skipped`.
+This can produce inconsistent resume/status output.
+
+Required outcome:
+
+`remaining_tasks` and `next_task` must use the same executable-work semantics.
+
+Recommended rule:
+
+1. `completed_tasks` = only `completed`
+2. `remaining_tasks` = `pending + in_progress + blocked + failed`
+3. `skipped` does not count as remaining
+
+## Follow-Up Wave 1: Fix Explicit Feature Propagation
+
+### Objective
+
+Make multi-feature orchestration safe by removing all implicit feature resolution from runtime helper calls.
+
+### Main Targets
+
+1. `skills/orchestrator.md`
+2. `agents/builder.md`
+3. Any other prompt/skill file invoking a feature-dependent CLI helper without `--feature`
+
+### Concrete Tasks
+
+1. Add `--feature "$FEATURE"` to every `orchestration resolve-stage` call in `skills/orchestrator.md`.
+2. Add `--feature "$FEATURE"` to `pipeline complete` in `skills/orchestrator.md`.
+3. Add `--feature "$FEATURE"` to `build record` in `agents/builder.md`.
+4. Run a repo-wide grep across `skills/` and `agents/` for `node "$DEVTEAM_BIN"` calls and verify any feature-dependent command is explicit.
+5. Do NOT loosen `requireFeature(...)` to compensate. The fix belongs in the callers.
+
+### Acceptance Criteria
+
+1. No prompt-layer runtime call relies on implicit feature auto-selection.
+2. A two-feature workspace can successfully resolve stage results, record builds, and complete pipeline state when the current feature is passed explicitly.
+
+### Required Tests
+
+Add a new test:
+
+- `tests/week7-multi-feature-cli-contract.test.cjs`
+
+It should cover:
+
+1. `orchestration resolve-stage --feature feat-a` succeeds in a two-feature workspace
+2. the same command without `--feature` fails clearly
+3. `build record --feature feat-a` only updates `feat-a`
+4. `pipeline complete --feature feat-a` only updates `feat-a`
+
+## Follow-Up Wave 2: Harden Run Identity Gate
+
+### Objective
+
+Treat run identity validity as a first-class gate, separate from dirty-worktree policy.
+
+### Main Targets
+
+1. `lib/run-state.cjs`
+2. `lib/pipeline-state.cjs`
+3. `skills/orchestrator.md`
+4. `README.md` if runtime semantics are documented there
+
+### Concrete Tasks
+
+1. Extend repo snapshot validation in `lib/run-state.cjs`.
+2. Add explicit invalid-identity signaling, either:
+   - repo-level `ready` + `errors[]`
+   - or run-level `has_invalid_repos` + `repo_identity_errors`
+3. Update `evaluateRunGate()` so invalid repo identity blocks readiness.
+4. Update `pipeline-state.ensureRunGate()` so invalid identity aborts `pipeline init`.
+5. Keep dirty-worktree behavior separate:
+   - dirty => user decision
+   - invalid identity => hard fail
+
+### Acceptance Criteria
+
+1. Missing dev worktree cannot produce `ready_for_pipeline: true`
+2. `pipeline init` fails when run identity is invalid
+3. Dirty-worktree behavior from existing tests remains unchanged
+
+### Required Tests
+
+Add:
+
+- `tests/week7-run-identity-gate.test.cjs`
+
+It should cover:
+
+1. missing dev worktree
+2. non-git dev worktree
+3. missing `start_head`
+4. valid clean worktree
+5. dirty-but-valid worktree still using the decision gate
+
+## Follow-Up Wave 3: Freeze Hooks To `RUN.json`
+
+### Objective
+
+Make hook execution obey the same frozen runtime topology as code/review/build.
+
+### Main Targets
+
+1. `lib/hooks-runner.cjs`
+2. `lib/run-state.cjs`
+3. `lib/init.cjs`
+4. `README.md` or schema docs if runtime behavior needs wording updates
+
+### Concrete Tasks
+
+1. Introduce a helper path in `hooks-runner.cjs` to resolve repos from `RUN.json` first.
+2. Merge frozen run repo identity with config metadata only for non-identity fields:
+   - remotes
+   - dev_slot
+   - baseline_id
+   - sharing_mode
+3. Ensure all hook env vars that expose repo/worktree identity come from frozen run repos whenever a run exists.
+4. Decide and document behavior when `RUN.json` is absent.
+   Recommended direction:
+   - for pipeline-stage usage, prefer fail-fast
+   - only allow live-config fallback if intentionally designed and documented
+
+### Acceptance Criteria
+
+1. Hook runner no longer drifts if feature config changes after run init
+2. Hook env worktree variables match the run snapshot
+3. Multi-repo env propagation remains correct
+
+### Required Tests
+
+Add:
+
+- `tests/week7-hooks-frozen-run-contract.test.cjs`
+
+It should:
+
+1. create a run using `slot-a`
+2. mutate feature config to point to `slot-b`
+3. run `hooks run`
+4. assert hook output/env still points to `slot-a`
+
+## Follow-Up Wave 4: Align Task Summary Semantics
+
+### Objective
+
+Make pause/resume/status summaries consistent for skipped work.
+
+### Main Targets
+
+1. `lib/task-state.cjs`
+2. `skills/pause.md`
+3. `skills/resume.md`
+4. any tests asserting task summary shape
+
+### Concrete Tasks
+
+1. Update `summarizeTaskState()` to make `remaining_tasks` reflect executable work only.
+2. Keep `by_status` unchanged.
+3. Ensure `next_task` and `remaining_tasks` use the same exclusion logic for `skipped`.
+4. Update pause/resume docs if they describe remaining work.
+
+### Acceptance Criteria
+
+1. `remaining_tasks == 0` when only skipped work remains
+2. `next_task == null` and `remaining_tasks == 0` are consistent
+3. Resume output is no longer misleading when tasks are skipped
+
+### Required Tests
+
+Add:
+
+- `tests/week7-task-summary-semantics.test.cjs`
+
+## Recommended Execution Order For This Addendum
+
+Execute in this order:
+
+1. Wave 1: explicit `--feature` propagation
+2. Wave 2: run identity gate
+3. Wave 3: frozen hooks contract
+4. Wave 4: task summary semantics
+
+Do not reorder Wave 2 and Wave 3 unless there is a concrete implementation dependency.
+
+## Suggested Commit Split For This Addendum
+
+1. `fix: pass explicit feature through multi-feature runtime helpers`
+2. `fix: block pipeline start on invalid run identities`
+3. `fix: freeze hook execution to run snapshot repos`
+4. `fix: align skipped-task summary semantics`
+5. `test: add multi-feature and frozen-run regression coverage`
+
+## Validation Commands For This Addendum
+
+Run these targeted tests while implementing:
+
+```bash
+node tests/week6-run-state.test.cjs
+node tests/week6-dirty-worktree-gate.test.cjs
+node tests/week6-hooks-runner.test.cjs
+node tests/week6-pause-resume-task-state.test.cjs
+node tests/week7-multi-repo-run.test.cjs
+node tests/week7-resume-flow.test.cjs
+node tests/week7-hooks-build-run.test.cjs
+node tests/week7-schema-remotes.test.cjs
+```
+
+Then run full regression:
+
+```bash
+for f in tests/*.test.cjs; do node "$f" || exit 1; done
+```
