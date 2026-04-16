@@ -126,7 +126,7 @@ scope:                          # 涉及哪些 repo
     dev_slot: <slot-id|null>    # Preferred: reference repos.<name>.dev_slots.<slot-id>
     base_ref: <tag|commit>      # Optional override; otherwise derived from slot baseline
     # Legacy compatibility:
-    # dev_worktree: <dir|null>
+    # dev_worktree: <dir|null>  # Deprecated: loader warns; migrate to dev_slot
     build_type: <string>        # Optional: e.g. "wheel"
 
 # 生命周期状态
