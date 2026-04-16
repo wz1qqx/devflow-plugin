@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { DevteamError, DevflowError, error: throwCoreError } = require('../lib/core.cjs');
+const { DevteamError, error: throwCoreError } = require('../lib/core.cjs');
 
 const CLI = path.resolve(__dirname, '..', 'lib', 'devteam.cjs');
 
@@ -195,7 +195,8 @@ function testStateUpdatePhaseAcceptsVerifyWhenFeatureSpecified() {
 }
 
 function testCoreErrorRenameMaintainsBackwardCompatibility() {
-  assert.strictEqual(DevflowError, DevteamError);
+  const coreExports = require('../lib/core.cjs');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(coreExports, 'DevflowError'), false);
   assert.throws(
     () => throwCoreError('boom'),
     err => err instanceof DevteamError && err.name === 'DevteamError' && err.message === 'boom'
