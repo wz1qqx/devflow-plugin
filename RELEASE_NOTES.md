@@ -19,6 +19,8 @@ The core milestone is making `bare_metal` a first-class shipping strategy across
     - `docker`
   - Runtime override supported with:
     - `/devteam team <feature> --build-mode <mode>`
+  - Built-in bootstrap supported with:
+    - `/devteam init bare-metal --feature <name> --host <user@host> --profile <name>`
 
 - **Fail-fast configuration validation**
   - Reject invalid `ship.strategy`
@@ -52,6 +54,7 @@ The core milestone is making `bare_metal` a first-class shipping strategy across
 - `README.md`
   - added release snapshot and strategy-aware behavior notes
   - added `--build-mode` option documentation
+  - added built-in bare-metal scaffold bootstrap instructions
   - aligned agent table and architecture flow with actual runtime behavior
   - replaced absolute local-file links with repository-relative links
 

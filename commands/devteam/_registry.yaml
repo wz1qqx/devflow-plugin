@@ -90,11 +90,11 @@ commands:
 
   init:
     description: Initialize workspace or add a new feature
-    argument-hint: "<workspace|feature> [name]"
-    objective: Bootstrap a new workspace (workspace.yaml, directories, baselines) or add a new feature with scope, worktrees, and initial config.
+    argument-hint: "<workspace|feature|bare-metal> [name|flags]"
+    objective: Bootstrap a new workspace, add a new feature, or scaffold built-in bare-metal rapid-test assets and wire ship.metal defaults for a feature.
     init-as: workspace
     allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
-    inline-process: "Parse action (workspace|feature). WORKSPACE: create workspace.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature config.yaml, create .dev/features/<name>/ directory, and register the name under defaults.features."
+    inline-process: "Parse action (workspace|feature|bare-metal). WORKSPACE: create workspace.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature config.yaml, create .dev/features/<name>/ directory, and register the name under defaults.features. BARE-METAL: run `node \"$DEVTEAM_BIN\" init bare-metal --feature <name> [--host user@ip] [--profile <name>] [--config <name>] [--port <port>] [--force] [--no-write-config]` to scaffold `.dev/rapid-test` scripts and profile env."
 
   cluster:
     description: Manage Kubernetes clusters — add, use, list

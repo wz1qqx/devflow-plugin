@@ -344,6 +344,8 @@ observability:
 ```
 /devteam init workspace      → 新建 workspace.yaml（workspace 级配置）
 /devteam init feature <name> → 新建 .dev/features/<name>/config.yaml + 注册到 defaults.features
+/devteam init bare-metal --feature <name> [--host user@ip] [--profile name]
+                            → 生成 .dev/rapid-test 内置脚手架并可自动写入 ship.metal 默认配置
 
 ```
 

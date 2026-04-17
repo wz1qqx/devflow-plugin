@@ -1,7 +1,7 @@
 ---
 name: devteam:init
 description: Initialize workspace or add a new feature
-argument-hint: "<workspace|feature> [name]"
+argument-hint: "<workspace|feature|bare-metal> [name|flags]"
 allowed-tools:
   - Read
   - Write
@@ -11,7 +11,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Bootstrap a new workspace (workspace.yaml, directories, baselines) or add a new feature with scope, worktrees, and initial config.
+Bootstrap a new workspace, add a new feature, or scaffold built-in bare-metal rapid-test assets and wire ship.metal defaults for a feature.
 </objective>
 
 <context>
@@ -28,5 +28,5 @@ INIT=$(node "$DEVTEAM_BIN" init workspace)
 If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init workspace --feature $SELECTED)`
 
 **Step 2**: Execute:
-Parse action (workspace|feature). WORKSPACE: create workspace.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature config.yaml, create .dev/features/<name>/ directory, and register the name under defaults.features.
+Parse action (workspace|feature|bare-metal). WORKSPACE: create workspace.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature config.yaml, create .dev/features/<name>/ directory, and register the name under defaults.features. BARE-METAL: run `node \"$DEVTEAM_BIN\" init bare-metal --feature <name> [--host user@ip] [--profile <name>] [--config <name>] [--port <port>] [--force] [--no-write-config]` to scaffold `.dev/rapid-test` scripts and profile env.
 </process>
