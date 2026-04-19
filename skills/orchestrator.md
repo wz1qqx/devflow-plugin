@@ -72,15 +72,20 @@ else:
 ```
 Also build `STAGES_CSV` from `STAGES`.
 
-**Build mode resolution** (strategy-aware, deterministic precedence):
+**Build mode resolution** (deterministic precedence):
 1. `--build-mode <mode>` from orchestrator args (highest priority)
-2. `ship.metal.build_mode` from feature config (when strategy is bare_metal)
+2. `build.mode` from feature config
 3. Strategy default:
    - `bare_metal` → `sync_only`
    - `k8s` → `docker`
 
+Valid combinations:
+- `bare_metal` + any mode (`sync_only`, `source_install`, `docker`, `skip`) ✓
+- `k8s` + `docker` or `skip` ✓
+- `k8s` + `sync_only` or `source_install` ✗ — k8s requires a Docker image; abort with error
+
 ```bash
-CONFIG_BUILD_MODE=$(echo "$INIT" | jq -r '.ship.metal.build_mode // empty')
+CONFIG_BUILD_MODE=$(echo "$INIT" | jq -r '.build.mode // empty')
 BUILD_MODE_OVERRIDE=""   # parsed from --build-mode
 
 if [ -n "$BUILD_MODE_OVERRIDE" ]; then
@@ -91,6 +96,15 @@ elif [ "$SHIP_STRATEGY" = "bare_metal" ]; then
   BUILD_MODE="sync_only"
 else
   BUILD_MODE="docker"
+fi
+
+# Guard: k8s strategy requires a Docker image
+if [ "$SHIP_STRATEGY" = "k8s" ] && \
+   [ "$BUILD_MODE" != "docker" ] && [ "$BUILD_MODE" != "skip" ]; then
+  echo "ERROR: ship.strategy=k8s requires build.mode=docker (or skip)."
+  echo "  Current build.mode='$BUILD_MODE' cannot produce a Docker image for kubectl deploy."
+  echo "  Fix: set build.mode: docker in feature config, or pass --build-mode docker."
+  exit 1
 fi
 ```
 
@@ -399,15 +413,21 @@ Branch on resolved decision:
 <step name="RUN_BUILD">
 **Guard: skip if "build" not in STAGES.**
 
-**Bare metal build mode guard**:
+**Build mode guard**:
 Build stage behavior is selected by effective `$BUILD_MODE`:
-- `skip` → skip build stage entirely (resolve stage as accepted with summary: skipped by build mode)
-- `sync_only` → builder runs sync.sh only (no Docker build)
-- `source_install` → builder runs sync.sh + setup/install script
-- `docker` → normal Docker build path
+- `skip` → skip build stage entirely (resolve as accepted with summary: skipped)
+- `sync_only` → builder runs sync.sh only (bare_metal only — k8s was rejected earlier)
+- `source_install` → builder runs sync.sh + setup/install script (bare_metal only)
+- `docker` → normal Docker build path (valid for both strategies)
 
-When `$SHIP_STRATEGY == "bare_metal"` and `$BUILD_MODE == "skip"`, do not spawn builder;
+When `$BUILD_MODE == "skip"`, do not spawn builder;
 resolve the stage immediately with a skipped summary and continue to ship.
+
+**Workspace `build.recipe` + `./build/image-build.sh`**: When the feature defines `build.recipe`, the builder
+runs `./build/image-build.sh build ... --depth auto` — depth (patch vs precompiled vs full) is **not** chosen
+by the orchestrator; it is resolved inside `image-build.sh`. For `BUILD_MODE=docker`, pass an explicit
+`Image tag: <name>` line in the builder prompt (or ensure `build.image_tag` is set in config) so the image
+can be tagged and recorded.
 
 ```
 Agent(
@@ -418,6 +438,7 @@ Agent(
     Run snapshot: $RUN_PATH
     Ship strategy: $SHIP_STRATEGY
     Build mode: $BUILD_MODE
+    Image tag: <user-chosen tag, e.g. kimi-vllm-fe-v6 — omit if build.image_tag is in config>
     Your task ID: $T_BUILD_ID"
 )
 ```
@@ -448,8 +469,10 @@ Branch on resolved decision:
 **Guard: skip if "ship" not in STAGES.**
 
 **Strategy-aware behavior**:
-- k8s: check cluster safety, then spawn shipper for kubectl deploy
-- bare_metal: shipper uses SSH to stop → sync → start → health check (no kubectl)
+- k8s: check cluster safety, then spawn shipper for kubectl deploy (legacy top-level `deploy.yaml_file`, or
+  `deploy.profiles` + `deploy.deploy_profile` when strategy is k8s)
+- bare_metal: shipper dispatches via `deploy.profiles` + `ship.metal.deploy_profile` when set (sources
+  workspace `build/image-build.sh` helpers); otherwise SSH stop → sync → start → health
 
 1. Check cluster safety from `$INIT` (k8s only, skip for bare_metal):
    - `safety: prod` → AskUserQuestion to confirm before spawning shipper
@@ -461,9 +484,11 @@ Agent(
   name: "shipper",
   subagent_type: "devteam:shipper",
   team_name: "devteam-$FEATURE",
-  prompt: "Deploy image '$NEW_TAG' for feature '$FEATURE' to cluster.
+  prompt: "Deploy for feature '$FEATURE'.
     Workspace: $WORKSPACE
     Run snapshot: $RUN_PATH
+    Result image: <full registry/repo:tag from build stage — required for bare_metal_docker and k8s profiles>
+    Tag (short): $NEW_TAG
     [CONFIRMED: user approved deployment]
     Your task ID: $T_SHIP_ID"
 )

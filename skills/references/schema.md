@@ -200,6 +200,9 @@ cluster: <string>               # Override cluster for this feature
         start_script: <relative-path>     # Local start script (e.g. .dev/rapid-test/start.sh)
         setup_script: <relative-path>     # Optional setup script
         service_url: <host:port>          # Health/smoke endpoint
+        deploy_profile: <string>          # Optional: key in deploy.profiles — shipper dispatches to
+                                           #   ship_bare_metal_venv | ship_bare_metal_docker | ship_k8s
+                                           #   (from workspace build/image-build.sh, sourced)
         log_paths:                        # Optional remote log locations
           decode: <path>
           prefill: <path>
@@ -212,6 +215,10 @@ cluster: <string>               # Override cluster for this feature
       # - k8s-specific fields (deploy.yaml_file, deploy.dgd_name, etc.) are ignored
 
     build:
+      recipe: <string>              # Optional: e.g. dynamo+vllm+pegaflow — when set, devteam:builder runs
+                                     #   ./build/image-build.sh build ... --depth auto (workspace driver)
+      image_tag: <string>           # Optional: docker image tag for pipeline (e.g. kimi-vllm-fe-v6).
+                                     #   Also overridable via task prompt "Image tag:" or DEVTEAM_IMAGE_TAG
       image_name: <string>          # Docker image name (defaults to feature name if omitted)
       commands:
         default: <string|path>
@@ -220,6 +227,23 @@ cluster: <string>               # Override cluster for this feature
         <KEY>: <value>
 
     deploy:
+      deploy_profile: <string>      # Optional: key into deploy.profiles (used when ship.strategy=k8s and
+                                     #   top-level yaml_file is not used)
+      profiles:                       # Optional: named deploy targets (bare_metal_venv | bare_metal_docker | k8s)
+        <name>:
+          type: bare_metal_venv | bare_metal_docker | k8s
+          host: <string>             # bare_metal: SSH host (rapid-test profile still from ship.metal.profile)
+          start_cmd: <string>        # bare_metal_venv: multiline
+          stop_cmd: <string>
+          health_url: <string>
+          env_file: <path>
+          run_cmd: <string>          # bare_metal_docker: optional; ship helper may use fixed run
+          yaml: <path>               # k8s: relative to workspace
+          namespace: <string>
+          cluster: <string>
+          image_placeholder: <string>
+          resource_kind: <string>
+          dgd_name: <string>
       yaml_file: <path>
       dgd_name: <string>
       resource_kind: <string>
