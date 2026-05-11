@@ -1,6 +1,7 @@
 ---
 name: devteam:status
-description: Project overview — team status, pipeline stage, deployments
+description: Latest run status — one-screen workspace/run overview
+argument-hint: "[--root <path>] [--set <workspace-set>] [--run <id>] [--json]"
 allowed-tools:
   - Read
   - Bash
@@ -8,7 +9,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Display a comprehensive project overview including config, worktree states, active deployments, and pipeline stage.
+Display the latest `.devteam/runs/<id>/` status, including workspace state, run evidence, gates, publish plan, and next actions.
 </objective>
 
 <context>
@@ -27,5 +28,7 @@ INIT=$(node "$DEVTEAM_BIN" init status)
 If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init status --feature $SELECTED)`
 
 **Step 2**: Execute:
-Parse $INIT JSON. Display: selected feature if one is resolved, current phase, repos (commits ahead, uncommitted), cluster info, build history, team status if active. Format as dashboard table.
+Run `node \"$DEVTEAM_BIN\" status $ARGUMENTS`.
+
+This is a shortcut for `session status`: if `--run` is omitted, it reads the latest run whose session metadata still matches current `.devteam/config.yaml`, skipping malformed or deleted-track history. Pass `--set <workspace-set>` to choose the latest readable run for one track. By default it prints compact text for daily use. Pass `--json` to print the full structured payload. Display `phase`, latest evidence, workspace totals, sync/image/deploy/deploy-verify/publish gates, publish-after-validation plan, and `next_actions`.
 </process>

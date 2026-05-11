@@ -1,7 +1,7 @@
 ---
 name: devteam:knowledge
-description: Wiki operations — search, lint, list
-argument-hint: "<search|lint|list> [query]"
+description: Knowledge operations — list/search/lint/capture recipes, wiki, and skills
+argument-hint: "<list|search|lint|capture> [query] [--root <path>] [--type <wiki|recipes|skills|all>] [--run <id>] [--apply]"
 allowed-tools:
   - Read
   - Write
@@ -10,7 +10,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Manage the wiki knowledge base — search for answers, run health checks, or list pages.
+Manage the lightweight `.devteam` knowledge layer: recipes, wiki notes, reusable skills, and run-to-knowledge capture drafts.
 </objective>
 
 <context>
@@ -29,5 +29,14 @@ INIT=$(node "$DEVTEAM_BIN" init knowledge)
 If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init knowledge --feature $SELECTED)`
 
 **Step 2**: Execute:
-Parse action (search/lint/list). SEARCH: match wiki/index.md, load pages, synthesize. LINT: check over-long, stale, orphans, dead links. LIST: display index.
+Run `node \"$DEVTEAM_BIN\" knowledge $ARGUMENTS`.
+
+Supported operations:
+
+- `knowledge list`: list `.devteam/wiki`, `.devteam/recipes`, and `.devteam/skills` markdown files.
+- `knowledge search <query>`: search titles, paths, and content.
+- `knowledge lint`: check missing knowledge dirs, overlong markdown, wiki index coverage, and dead wikilinks.
+- `knowledge capture --run <id>`: render a draft note from a run. It is read-only by default; pass `--apply` to write it.
+
+Use `--type wiki|recipes|skills|all` for list/search, and `--to wiki|recipes` for capture.
 </process>
