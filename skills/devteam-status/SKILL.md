@@ -16,10 +16,10 @@ workspace. Keep the answer concise; do not paste raw JSON unless asked.
 Choose the workspace root in this order:
 
 1. A path explicitly provided by the user.
-2. Current working directory if it contains `.devteam/config.yaml`.
-3. `/Users/ppio-dn-289/Documents/llmd-vllm-v020-pega-v021` if it exists.
+2. Current working directory or nearest parent containing `.devteam/config.yaml`.
+3. `DEVTEAM_ROOT` if it is set and exists.
 
-Do not modify the old workspace.
+If no devteam workspace can be found, ask the user for a workspace root.
 
 ## Primary Command
 

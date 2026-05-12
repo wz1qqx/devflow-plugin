@@ -10,18 +10,27 @@ from typing import Optional
 
 
 DEFAULT_CLI = Path("/Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs")
-DEFAULT_ROOT = Path("/Users/ppio-dn-289/Documents/llmd-vllm-v020-pega-v021")
+DEFAULT_ROOT = Path(os.environ["DEVTEAM_ROOT"]).expanduser() if os.environ.get("DEVTEAM_ROOT") else None
+
+
+def find_devteam_root(start: Path) -> Optional[Path]:
+    current = start.resolve()
+    while current != current.parent:
+        if (current / ".devteam" / "config.yaml").exists():
+            return current
+        current = current.parent
+    return None
 
 
 def find_root(root_arg: Optional[str]) -> Path:
     if root_arg:
         return Path(root_arg).expanduser().resolve()
 
-    cwd = Path.cwd().resolve()
-    if (cwd / ".devteam" / "config.yaml").exists():
-        return cwd
+    found = find_devteam_root(Path.cwd())
+    if found:
+        return found
 
-    if DEFAULT_ROOT.exists():
+    if DEFAULT_ROOT and DEFAULT_ROOT.exists():
         return DEFAULT_ROOT
 
     return cwd
@@ -691,7 +700,7 @@ def emit_full_workspace_summary(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Summarize devteam workspace status.")
-    parser.add_argument("--root", help="Workspace root. Defaults to cwd or the known new workspace.")
+    parser.add_argument("--root", help="Workspace root. Defaults to cwd/parents with .devteam/config.yaml, then DEVTEAM_ROOT.")
     parser.add_argument("--set", help="Workspace set. Defaults to DEVTEAM_TRACK, then .devteam/config.yaml defaults.workspace_set.")
     parser.add_argument("--run", help="Run id. Defaults to latest run if present.")
     parser.add_argument("--no-run", action="store_true", help="Do not auto-select latest run.")

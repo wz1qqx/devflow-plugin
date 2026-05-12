@@ -3757,6 +3757,148 @@ function testWorkspaceScaffoldCreatesCleanSkeleton() {
   assert.strictEqual(doctor.workspace_status.worktrees, 0);
 }
 
+function testWorkspaceOnboardingContextTrackContextAndHandoff() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-onboarding-'));
+  const repoPath = path.join(root, 'repos', 'repo-a');
+  initGitRepo(repoPath);
+  execFileSync('git', ['config', 'user.email', 'devteam@example.com'], { cwd: repoPath });
+  execFileSync('git', ['config', 'user.name', 'Devteam Test'], { cwd: repoPath });
+  execFileSync('git', ['add', 'README.md'], { cwd: repoPath });
+  execFileSync('git', ['commit', '-m', 'init'], { cwd: repoPath, stdio: ['ignore', 'ignore', 'ignore'] });
+
+  writeFile(path.join(root, '.devteam', 'config.yaml'), [
+    'version: 2',
+    `workspace: ${root}`,
+    'name: onboarding-test',
+    'agent_onboarding:',
+    '  old_workspace:',
+    '    path: "/tmp/old-devteam-workspace"',
+    '    policy: "read-only"',
+    'worktrees:',
+    '  repo_a__feature:',
+    '    repo: repo-a',
+    '    path: repos/repo-a',
+    '    branch: master',
+    '    base_ref: HEAD',
+    '    roles: ["source", "remote-test"]',
+    '    sync:',
+    '      profile: remote-test-feature',
+    '      remote_path: /remote/devteam/feature/repo-a',
+    'workspace_sets:',
+    '  feature-a:',
+    '    description: Feature A validation track',
+    '    aliases: [feat-a]',
+    '    status: active',
+    '    worktrees: ["repo_a__feature"]',
+    '  old-track:',
+    '    status: archived',
+    '    worktrees: []',
+    'env_profiles:',
+    '  remote-test-feature:',
+    '    type: remote_dev',
+    '    ssh: "ssh root@example.com"',
+    '    host: "root@example.com"',
+    '    source_dir: "/remote/devteam/feature/repo-a"',
+    '    venv: "/remote/venvs/feature-a"',
+    '    python: "/remote/venvs/feature-a/bin/python"',
+    '  local:',
+    '    type: local',
+    'build_profiles:',
+    '  feature-a-image:',
+    '    workspace_set: feature-a',
+    '    mode: tag_patch_image',
+    'defaults:',
+    '  workspace_set: feature-a',
+    '  env: remote-test-feature',
+    '  sync: remote-test-feature',
+    '  build: feature-a-image',
+  ].join('\n') + '\n');
+
+  const plan = runCli(root, ['workspace', 'onboard', '--root', root]);
+  assert.strictEqual(plan.action, 'workspace_onboard');
+  assert.strictEqual(plan.status, 'planned');
+  assert.ok(plan.files.some(file => file.name === 'AGENTS.md' && file.state === 'missing'));
+
+  const written = runCli(root, ['workspace', 'onboard', '--root', root, '--write']);
+  assert.strictEqual(written.status, 'applied');
+  assert.ok(fs.existsSync(path.join(root, 'AGENTS.md')));
+  assert.ok(fs.existsSync(path.join(root, 'CLAUDE.md')));
+  assert.ok(fs.existsSync(path.join(root, 'README.devteam.md')));
+  const agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
+  assert.match(agents, /workspace context --root "\$PWD" --for codex --text/);
+  assert.match(agents, /Feature A validation track/);
+  assert.match(agents, /\/tmp\/old-devteam-workspace/);
+
+  const context = runCli(root, ['workspace', 'context', '--root', root, '--for', 'codex']);
+  assert.strictEqual(context.action, 'workspace_context');
+  assert.strictEqual(context.name, 'onboarding-test');
+  assert.strictEqual(context.default_track, 'feature-a');
+  assert.strictEqual(context.selected_track, null);
+  assert.strictEqual(context.tracks.active[0].name, 'feature-a');
+  assert.strictEqual(context.tracks.archived[0].name, 'old-track');
+  assert.match(context.recommended_commands.track_picker, /track/);
+
+  const contextText = runCliText(root, ['workspace', 'context', '--root', root, '--for', 'codex', '--text']);
+  assert.match(contextText, /Devteam Workspace Context/);
+  assert.match(contextText, /Choose a track before editing code/);
+
+  const trackContext = runCli(root, ['track', 'context', '--root', root, '--set', 'feat-a']);
+  assert.strictEqual(trackContext.action, 'track_context');
+  assert.strictEqual(trackContext.track.name, 'feature-a');
+  assert.strictEqual(trackContext.profiles.env.venv, '/remote/venvs/feature-a');
+  assert.strictEqual(trackContext.worktrees[0].exists, true);
+
+  const trackText = runCliText(root, ['track', 'context', '--root', root, '--set', 'feat-a', '--text']);
+  assert.match(trackText, /Track Context/);
+  assert.match(trackText, /remote-test-feature/);
+  assert.match(trackText, /\/remote\/venvs\/feature-a/);
+
+  const session = runCli(root, [
+    'session',
+    'start',
+    '--root',
+    root,
+    '--set',
+    'feature-a',
+    '--no-deploy',
+  ]);
+  runCli(root, [
+    'session',
+    'record',
+    '--root',
+    root,
+    '--set',
+    'feature-a',
+    '--run',
+    session.run_id,
+    '--kind',
+    'test',
+    '--status',
+    'passed',
+    '--summary',
+    'pytest passed: 1 passed',
+  ]);
+
+  const handoff = runCli(root, ['session', 'handoff', '--root', root, '--set', 'feature-a']);
+  assert.strictEqual(handoff.action, 'session_handoff');
+  assert.strictEqual(handoff.workspace_set, 'feature-a');
+  assert.strictEqual(handoff.verified.find(item => item.kind === 'test').status, 'passed');
+  assert.ok(handoff.do_not.some(item => item.includes('remote state')));
+
+  const handoffText = runCliText(root, ['session', 'handoff', '--root', root, '--set', 'feature-a', '--text']);
+  assert.match(handoffText, /Session Handoff/);
+  assert.match(handoffText, /test: passed/);
+
+  const doctor = runCli(root, ['doctor', 'agent-onboarding', '--root', root]);
+  assert.strictEqual(doctor.action, 'agent_onboarding_doctor');
+  assert.strictEqual(doctor.status, 'pass');
+  assert.strictEqual(doctor.totals.errors, 0);
+
+  const doctorText = runCliText(root, ['doctor', 'agent-onboarding', '--root', root, '--text']);
+  assert.match(doctorText, /agent_context_command|agents_context_command/);
+  assert.match(doctorText, /workspace context can be generated/);
+}
+
 function testKnowledgeListSearchLintAndCaptureRun() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-knowledge-'));
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
@@ -4076,6 +4218,7 @@ function main() {
   testEnvRefreshCanAutoRecordToSessionRun();
   testEnvDoctorCanAutoRecordToSessionRun();
   testWorkspaceScaffoldCreatesCleanSkeleton();
+  testWorkspaceOnboardingContextTrackContextAndHandoff();
   testKnowledgeListSearchLintAndCaptureRun();
   testSkillListLintAndInstallUsesExplicitTarget();
   testRemoteDevVllmProfileChecksSourceVenvAndImport();

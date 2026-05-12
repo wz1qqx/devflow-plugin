@@ -1,7 +1,7 @@
 ---
 name: devteam:workspace
-description: Clean workspace skeleton — create the new .devteam layout without legacy assumptions
-argument-hint: "scaffold [--root <path>] [--name <name>] [--force] [--clean-legacy]"
+description: Workspace management — scaffold .devteam layout and agent onboarding/context
+argument-hint: "<scaffold|onboard|context> [--root <path>] [--name <name>] [--write] [--force] [--for codex|claude|human] [--text]"
 allowed-tools:
   - Read
   - Write
@@ -10,7 +10,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Create a clean devteam workspace skeleton with config, recipes, wiki, skills, runs, and profile placeholders.
+Create a clean devteam workspace skeleton and generate/read the agent onboarding protocol for any .devteam workspace.
 </objective>
 
 <context>
@@ -29,5 +29,5 @@ INIT=$(node "$DEVTEAM_BIN" init workspace)
 If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init workspace --feature $SELECTED)`
 
 **Step 2**: Execute:
-Run `node \"$DEVTEAM_BIN\" workspace scaffold $ARGUMENTS`. Display created/skipped files, cleaned legacy metadata, and next_action. Use --force only when intentionally replacing an existing skeleton config; use --clean-legacy only when intentionally removing old migration-only metadata. This command does not choose concrete repos, branches, remote venvs, image tags, or cluster targets.
+Run `node "$DEVTEAM_BIN" workspace $ARGUMENTS`. For scaffold, display created/skipped files, cleaned legacy metadata, and next_action; use --force only when intentionally replacing an existing skeleton config and --clean-legacy only when intentionally removing old migration-only metadata. For onboard, render AGENTS.md, CLAUDE.md, and README.devteam.md from .devteam/config.yaml; dry-run by default, write only with --write, and overwrite drifted files only with --force. For context, print the dynamic agent context: workspace identity, track selection policy, active/parked/archived tracks, selected/default track, primary next action, and first commands. This command does not choose concrete repos, branches, remote venvs, image tags, or cluster targets.
 </process>

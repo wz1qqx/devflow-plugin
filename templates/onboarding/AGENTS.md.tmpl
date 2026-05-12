@@ -1,0 +1,133 @@
+# How To Work In This Devteam Workspace
+
+This is a devteam-managed workspace. Do not treat this directory as a single
+repository.
+
+Workspace:
+
+- Name: `{{WORKSPACE_NAME}}`
+- Root: `{{WORKSPACE_ROOT}}`
+- Config: `{{CONFIG_PATH}}`
+- Default track: `{{DEFAULT_TRACK}}`
+
+The `.devteam/config.yaml` file is the machine-readable source of truth. This
+file is the agent onboarding entrypoint.
+
+## First Action
+
+When entering this workspace, inspect the dynamic devteam context before making
+changes:
+
+```bash
+node "{{DEVTEAM_CLI}}" workspace context --root "$PWD" --for codex --text
+```
+
+Then choose or confirm a track:
+
+```bash
+node "{{DEVTEAM_CLI}}" track list --root "$PWD" --active-only --text
+node "{{DEVTEAM_CLI}}" track context --root "$PWD" --set "<track>" --text
+```
+
+For a compact run/worktree/evidence view after selecting a track:
+
+```bash
+node "{{DEVTEAM_CLI}}" status --root "$PWD" --set "<track>"
+```
+
+If Codex/Claude skills are available, use `devteam-console` as the daily
+workspace entrypoint and `devteam-status` for compact read-only summaries.
+
+## Track Model
+
+This workspace may contain multiple tracks. A session should bind itself to a
+track instead of assuming a global active track.
+
+Before editing code:
+
+1. List or inspect available tracks.
+2. Ask the user which track this session should work on unless the request
+   clearly names one.
+3. Start or select a run for that track.
+4. Work only inside the worktrees belonging to that track.
+
+Prefer session-local selection:
+
+```bash
+node "{{DEVTEAM_CLI}}" session start --root "$PWD" --set "<track>" --text
+```
+
+Do not use `track use` to mutate the workspace default when multiple sessions
+may be active. Use `--set <track>` or a session-local `DEVTEAM_TRACK` instead.
+
+## Current Tracks
+
+Active tracks:
+
+{{ACTIVE_TRACKS}}
+
+All configured tracks:
+
+{{ALL_TRACKS}}
+
+## Workspace Boundaries
+
+{{OLD_WORKSPACE_BLOCK}}
+
+Repos and worktrees should be managed through the devteam workspace layout, not
+by ad hoc cloning into unrelated directories.
+
+## Normal Development Flow
+
+The expected flow is:
+
+1. Choose a track.
+2. Inspect current worktree status.
+3. Start or continue a run.
+4. Make local code changes.
+5. Sync changes to the remote validation server when needed.
+6. Validate in the remote venv.
+7. Record test evidence.
+8. Prepare or review the image build plan.
+9. Build an image only when the user asks.
+10. Record image evidence.
+11. Deploy only when the user asks.
+12. Record deploy and deploy-verify evidence.
+
+Do not run expensive build, deploy, publish, or remote mutation commands just
+because they are available. Confirm intent from the user or the current run
+context.
+
+## Evidence Discipline
+
+Runs under `.devteam/runs/` are the source of truth for what has been verified.
+
+When a validation, build, publish, sync, deploy, or deploy-verify step is
+performed, record evidence through devteam instead of only describing it in
+chat.
+
+Treat stale evidence carefully. If a worktree HEAD has changed after evidence
+was recorded, start a fresh run for the current HEAD instead of appending new
+evidence to the old run.
+
+## Git Discipline
+
+Do not revert user changes unless explicitly requested.
+
+Before committing application code, inspect the relevant worktree:
+
+```bash
+git status --short
+git diff --check
+```
+
+For devteam tool changes, also run the relevant devteam tests and skill lint.
+For application repo changes, run the smallest meaningful validation first.
+
+## Safety Rules
+
+Do not run destructive git commands unless explicitly requested. Do not publish,
+build, deploy, or mutate remote state without clear user intent.
+
+When uncertain, open the dynamic workspace context, ask the user to choose the
+track for the current session, then inspect the selected track context.

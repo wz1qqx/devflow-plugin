@@ -1,0 +1,33 @@
+# {{WORKSPACE_NAME}} Devteam Workspace
+
+This workspace is managed by devteam.
+
+Daily entry:
+
+```bash
+node "{{DEVTEAM_CLI}}" workspace context --root "$PWD" --for human --text
+node "{{DEVTEAM_CLI}}" track list --root "$PWD" --active-only --text
+```
+
+After selecting a track:
+
+```bash
+node "{{DEVTEAM_CLI}}" track context --root "$PWD" --set "<track>" --text
+node "{{DEVTEAM_CLI}}" status --root "$PWD" --set "<track>"
+```
+
+Core concepts:
+
+- Track: a named development/validation line.
+- Worktree: local repo checkout used by a track.
+- Run: auditable `.devteam/runs/<id>/` validation session.
+- Evidence: recorded sync/test/publish/image/deploy results.
+- Env profile: remote venv/server or local environment profile.
+- Image profile: image build contract and gate.
+- Deploy profile: pre-production deployment target and verification contract.
+
+Configured tracks:
+
+{{ALL_TRACKS}}
+
+{{OLD_WORKSPACE_BLOCK}}

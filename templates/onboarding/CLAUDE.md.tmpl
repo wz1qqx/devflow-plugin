@@ -1,0 +1,23 @@
+# Claude Instructions
+
+Read `AGENTS.md` first. This workspace is managed by devteam and should not be
+treated as a single repository.
+
+Before editing code, inspect the dynamic workspace context and bind this
+session to a track:
+
+```bash
+node "{{DEVTEAM_CLI}}" workspace context --root "$PWD" --for claude --text
+node "{{DEVTEAM_CLI}}" track list --root "$PWD" --active-only --text
+```
+
+After the user chooses a track:
+
+```bash
+node "{{DEVTEAM_CLI}}" track context --root "$PWD" --set "<track>" --text
+```
+
+Use session-local track selection such as `--set <track>` or `DEVTEAM_TRACK`
+instead of relying on a global active track.
+
+{{OLD_WORKSPACE_BLOCK}}

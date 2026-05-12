@@ -1,7 +1,7 @@
 ---
 name: devteam:doctor
-description: Workspace doctor — checks local worktrees, env profile, and sync readiness
-argument-hint: "[--root <path>] [--set <workspace-set>] [--profile <env-profile>]"
+description: Workspace doctor — checks local worktrees, env/sync readiness, and agent onboarding
+argument-hint: "[agent-onboarding] [--root <path>] [--set <workspace-set>] [--profile <env-profile>] [--text]"
 allowed-tools:
   - Read
   - Bash
@@ -9,7 +9,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Run the local-to-remote workspace doctor for .devteam/config.yaml.
+Run the local-to-remote workspace doctor or check that Claude/Codex onboarding is ready for a .devteam workspace.
 </objective>
 
 <context>
@@ -28,5 +28,5 @@ INIT=$(node "$DEVTEAM_BIN" init doctor)
 If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init doctor --feature $SELECTED)`
 
 **Step 2**: Execute:
-Run `node \"$DEVTEAM_BIN\" doctor $ARGUMENTS`. Display status, problems, workspace totals, env status, sync totals, run-history health, and next_action. If history has invalid run metadata, review `session archive-plan` before cleaning it up with `session archive --yes`.
+Run `node "$DEVTEAM_BIN" doctor $ARGUMENTS`. Without subcommands, display status, problems, workspace totals, env status, sync totals, run-history health, and next_action. If history has invalid run metadata, review `session archive-plan` before cleaning it up with `session archive --yes`. With `doctor agent-onboarding`, check AGENTS.md, CLAUDE.md, dynamic workspace context, track picker readiness, and devteam-console/devteam-status skill availability; use `workspace onboard --write` to create missing onboarding files.
 </process>
