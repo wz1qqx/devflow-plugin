@@ -155,5 +155,3 @@ git diff --check
 
 For application workspace changes, run the smallest meaningful validation for
 the selected track first, then record the result as run evidence.
-
-# Plugin manifest (devteam v2.1.0)

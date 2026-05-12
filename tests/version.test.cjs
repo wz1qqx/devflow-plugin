@@ -29,7 +29,7 @@ function testVersionFileMatchesPublishedMetadata() {
   assert.strictEqual(pluginManifest.version, version);
   assert.strictEqual(marketplaceManifest.plugins[0].version, version);
   assert.match(readme, new RegExp(`\\[!\\[v${escapeRegex(version)}\\]\\(`));
-  assert.match(readme, new RegExp(`Plugin manifest \\(devteam v${escapeRegex(version)}\\)`));
+  assert.doesNotMatch(readme, /# Plugin manifest/);
 }
 
 function testSyncCacheReadsVersionFile() {

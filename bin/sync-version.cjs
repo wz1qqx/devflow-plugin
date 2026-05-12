@@ -44,15 +44,16 @@ function syncMarketplaceManifest() {
 function syncReadme() {
   const filePath = path.join(repoRoot, 'README.md');
   const current = fs.readFileSync(filePath, 'utf8');
-  const next = current
-    .replace(/\[!\[v[^\]]+\]\(https:\/\/img\.shields\.io\/badge\/version-[^)]+\)\(https:\/\/github\.com\/wz1qqx\/devteam\)/, `[![v${targetVersion}](https://img.shields.io/badge/version-${targetVersion}-orange)](https://github.com/wz1qqx/devteam)`)
-    .replace(/# Plugin manifest \(devteam v[0-9.]+\)/, `# Plugin manifest (devteam v${targetVersion})`);
+  const next = current.replace(
+    /\[!\[v[^\]]+\]\(https:\/\/img\.shields\.io\/badge\/version-[^)]+\)\(https:\/\/github\.com\/wz1qqx\/devteam\)/,
+    `[![v${targetVersion}](https://img.shields.io/badge/version-${targetVersion}-orange)](https://github.com/wz1qqx/devteam)`
+  );
 
   const changed = current !== next;
   if (changed && !checkOnly) {
     fs.writeFileSync(filePath, next, 'utf8');
   }
-  return changed ? [`${path.relative(repoRoot, filePath)} version references != ${targetVersion}`] : [];
+  return changed ? [`${path.relative(repoRoot, filePath)} version badge != ${targetVersion}`] : [];
 }
 
 function main() {
