@@ -1,59 +1,65 @@
 ---
 name: devteam
-description: "Automated multi-agent pipeline orchestration for full development lifecycle. One command from spec to verified deployment with optimization feedback loops. Trigger for: feature development, automated pipeline, team orchestration, build, deploy, verify."
+description: "Workspace control layer for devteam-managed multi-track development. Use for workspace context, track selection, run evidence, remote venv validation, image/deploy planning, and devteam skill management."
 ---
 
-# devteam — Automated Multi-Agent Pipeline
+# devteam
 
-## Skill Discovery
+Use the lightweight `.devteam` workflow by default. Do not route users into the
+older feature-pipeline commands unless they explicitly ask for migration or
+historical compatibility.
 
-When the user invokes `/devteam <action> [args]`, route to the matching command:
+## Primary Entry
 
-| Action | Command | Description |
-|--------|---------|-------------|
-| `team <feature>` | `/devteam team` | **Primary**: Automated multi-agent pipeline — full lifecycle |
-| `pause` | `/devteam pause` | Save session state for later resume |
-| `resume` | `/devteam resume` | Restore session state |
-| `status` | `/devteam status` | Project overview dashboard |
-| `diff` | `/devteam diff` | Show worktree changes |
-| `learn <topic>` | `/devteam learn` | Research and create wiki pages |
-| `knowledge <action>` | `/devteam knowledge` | Wiki operations |
-| `feature [list\|delete]` | `/devteam feature` | List/select/delete features |
-| `init <workspace\|feature>` | `/devteam init` | Initialize workspace or add feature |
-| `cluster <add\|use\|list>` | `/devteam cluster` | Manage K8s cluster profiles |
-| `vllm-opt <feature>` | `/devteam vllm-opt` | Standalone vLLM performance analysis |
-| `clean` | `/devteam clean` | Cleanup orphan worktrees/images/pods |
+When the user asks for the devteam entry point, workspace console, current
+status, how to continue, or what the workspace looks like, prefer the installed
+skills:
 
-## Dispatch Rule
+- `devteam-console`: one-screen daily workspace console.
+- `devteam-status`: compact workspace/run status summary.
 
-1. Parse first token of `$ARGUMENTS` as `<action>`
-2. Route to corresponding `/devteam <action>` command
-3. Pass remaining args forward
+If those skills are unavailable, run the CLI directly:
 
-If no action specified, suggest `/devteam team <feature>` as the primary workflow.
+```bash
+node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs workspace context --root "$PWD" --for codex --text
+node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs track list --root "$PWD" --active-only --text
+```
 
-## Pipeline Roles
+## Command Surface
 
-The `/devteam team` command orchestrates 8 specialized agents:
+Route `/devteam <action>` to the matching lightweight command:
 
-| Role | Agent | Responsibility |
-|------|-------|---------------|
-| Spec | `agents/spec.md` | Discuss requirements with user, generate spec |
-| Planner | `agents/planner.md` | Create wave-grouped implementation plan |
-| Coder | `agents/coder.md` | Implement plan with atomic commits |
-| Reviewer | `agents/reviewer.md` | READ-ONLY five-axis code review |
-| Builder | `agents/builder.md` | Docker image build and push |
-| Shipper | `agents/shipper.md` | K8s deployment with GPU/safety checks |
-| Verifier | `agents/verifier.md` | Smoke + benchmark verification |
-| vLLM-Opter | `agents/vllm-opter.md` | Performance analysis (on-demand) |
+| Action | Command | Purpose |
+| --- | --- | --- |
+| `workspace` | `workspace scaffold|onboard|context` | Workspace skeleton and agent onboarding/context |
+| `track` | `track list|status|context|bind|use` | Track discovery and session-local binding |
+| `presence` | `presence list|touch|clear` | Concurrent session soft-lock hints |
+| `session` | `session start|status|handoff|record|list|lint|...` | Run lifecycle, evidence, and handoff |
+| `status` | `status` | One-screen latest run status |
+| `doctor` | `doctor [agent-onboarding]` | Workspace/env/sync/onboarding checks |
+| `ws` | `ws status|materialize|publish-plan|publish` | Local worktree inventory and publish planning |
+| `env` | `env list|doctor|refresh` | Remote/k8s env profile checks and refresh |
+| `sync` | `sync plan|apply|status` | Local-to-remote sync planning/execution |
+| `remote-loop` | `remote-loop plan|start|doctor|refresh|sync|record-test|status` | Track-scoped remote validation loop |
+| `image` | `image plan|prepare|record` | Image contract, context, and evidence |
+| `deploy` | `deploy plan|record|verify-record` | k8s pre-production deploy evidence |
+| `skill` | `skill list|status|lint|install` | Devteam Codex skill management |
+| `knowledge` | `knowledge list|search|lint|capture` | Recipes/wiki/skills knowledge layer |
 
-## Core Operating Behaviors
+## Track Discipline
 
-These apply across ALL commands and agent interactions:
+- Treat a devteam workspace as multi-repo and multi-track.
+- Do not assume `defaults.workspace_set` is the current session track.
+- Ask the user to choose a track, or pass `--set <track>` / use
+  `DEVTEAM_TRACK` for the current session.
+- Use presence as a hint for concurrent sessions, not as a hard lock.
 
-1. **Surface Assumptions** — State them explicitly, then wait for correction
-2. **Manage Confusion** — Stop on inconsistencies; name the confusion; present the tradeoff
-3. **Push Back When Warranted** — Point out problems, propose alternatives
-4. **Enforce Simplicity** — Fewer lines? Are abstractions earning their complexity?
-5. **Scope Discipline** — Never touch code outside the task scope
-6. **Verify, Don't Assume** — Every task has a verification step; never done until verification passes
+## Mutation Discipline
+
+- Read-only commands are safe: `workspace context`, `track list`, `track context`,
+  `status`, `session status`, `session handoff`, `ws status`, `image plan`,
+  `deploy plan`, `skill status`, and `doctor`.
+- Commands that sync, refresh envs, publish, build, deploy, or write evidence
+  require clear user intent or an already agreed run flow.
+- Record evidence after sync/test/build/deploy/publish work so another session
+  can continue from the run history.

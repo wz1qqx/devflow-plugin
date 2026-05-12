@@ -4,7 +4,7 @@
 //
 // Thresholds:
 //   WARNING  (remaining <= 35%): Wrap up current task, consider pausing
-//   CRITICAL (remaining <= 25%): Stop immediately, run /devteam:pause
+//   CRITICAL (remaining <= 25%): Stop immediately and create a run handoff
 //
 // Debounce: 5 tool uses between warnings to avoid spam
 // Severity escalation (WARNING→CRITICAL) bypasses debounce
@@ -67,13 +67,14 @@ process.stdin.on('end', () => {
 
       if (severity === 'critical') {
         result.hookSpecificOutput.additionalContext =
-          `🚨 CRITICAL: Context window ${usedPct}% used (${Math.round(usableRemaining)}% remaining). ` +
-          `Quality WILL degrade. Run /devteam:pause to save state, then start a new session with /devteam:resume. ` +
-          `Do NOT start complex new tasks.`;
+          `CRITICAL: Context window ${usedPct}% used (${Math.round(usableRemaining)}% remaining). ` +
+          `Quality will degrade. Record the current state with ` +
+          `devteam session handoff --root <workspace> --set <track> --text, then continue in a fresh session. ` +
+          `Do not start complex new tasks.`;
       } else {
         result.hookSpecificOutput.additionalContext =
-          `⚠️ WARNING: Context window ${usedPct}% used (${Math.round(usableRemaining)}% remaining). ` +
-          `Consider wrapping up the current task. If more work is needed, run /devteam:pause then resume in a new session.`;
+          `WARNING: Context window ${usedPct}% used (${Math.round(usableRemaining)}% remaining). ` +
+          `Consider wrapping up the current task. If more work is needed, capture a devteam session handoff first.`;
       }
 
       process.stdout.write(JSON.stringify(result));
