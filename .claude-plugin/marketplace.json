@@ -10,7 +10,7 @@
       "name": "devteam",
       "source": "./",
       "description": "Workspace control layer for multi-track local development, remote venv validation, image planning, deployment evidence, and reusable agent skills",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": {
         "name": "gailun"
       }

@@ -16,9 +16,12 @@ Core rule: benchmark first, profile second, recommend changes last.
 Start by resolving the devteam workspace and selected track:
 
 ```bash
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs workspace context --root <workspace-root> --for codex --text
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs track list --root <workspace-root> --active-only --text
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs track context --root <workspace-root> --set <track> --text
+DEVTEAM_BIN="${DEVTEAM_CLI:-${HOME}/Documents/devteam/lib/devteam.cjs}"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | tail -1)
+node "$DEVTEAM_BIN" workspace context --root <workspace-root> --for codex --text
+node "$DEVTEAM_BIN" track list --root <workspace-root> --active-only --text
+node "$DEVTEAM_BIN" track context --root <workspace-root> --set <track> --text
 ```
 
 If the user has not selected a track, ask them to choose one. Do not mutate the

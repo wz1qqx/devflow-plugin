@@ -129,12 +129,15 @@ creating duplicate sessions.
 If the script is unavailable, run:
 
 ```bash
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs status --root <root>
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs track list --root <root> --text --no-runtime
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs track status --root <root> --text
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs track bind <track> --root <root> --text
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs presence list --root <root> --text
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs skill list --root <root> --text
+DEVTEAM_BIN="${DEVTEAM_CLI:-${HOME}/Documents/devteam/lib/devteam.cjs}"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | tail -1)
+node "$DEVTEAM_BIN" status --root <root>
+node "$DEVTEAM_BIN" track list --root <root> --text --no-runtime
+node "$DEVTEAM_BIN" track status --root <root> --text
+node "$DEVTEAM_BIN" track bind <track> --root <root> --text
+node "$DEVTEAM_BIN" presence list --root <root> --text
+node "$DEVTEAM_BIN" skill list --root <root> --text
 ```
 
 Then ask the user to choose a track, provide the selected-track console with

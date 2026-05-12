@@ -1,5 +1,21 @@
 # devteam Release Notes
 
+## 2.2.1 - Portable agent plugin entrypoints
+
+`devteam` now installs cleanly on another Mac without rewriting skill files by
+hand.
+
+- `devteam-console` and `devteam-status` discover `devteam.cjs` from
+  `DEVTEAM_CLI`, `~/Documents/devteam`, the Claude marketplace plugin copy, or
+  the versioned Claude plugin cache.
+- Skill fallback command snippets no longer point at one machine-specific
+  `/Users/<name>/Documents/devteam` path.
+- Console/status helper scripts now fall back to the current directory when no
+  workspace root is found instead of referencing an undefined `cwd` variable.
+
+This release is intended for syncing `devteam` and managed workspaces across
+machines while keeping the same Claude/Codex skill workflow.
+
 ## 2.2.0 - .devteam workspace runtime
 
 `devteam` is centered on the current `.devteam/config.yaml` workspace runtime

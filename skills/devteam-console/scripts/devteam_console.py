@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Optional
 
 
-DEFAULT_CLI = Path("/Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs")
 DEFAULT_ROOT = Path(os.environ["DEVTEAM_ROOT"]).expanduser() if os.environ.get("DEVTEAM_ROOT") else None
 
 
@@ -20,6 +19,35 @@ def find_devteam_root(start: Path) -> Optional[Path]:
             return current
         current = current.parent
     return None
+
+
+def find_devteam_cli(cli_arg: Optional[str]) -> Path:
+    if cli_arg:
+        return Path(cli_arg).expanduser().resolve()
+
+    if os.environ.get("DEVTEAM_CLI"):
+        return Path(os.environ["DEVTEAM_CLI"]).expanduser().resolve()
+
+    script = Path(__file__).resolve()
+    candidates = []
+    for parent in script.parents:
+        candidates.append(parent / "lib" / "devteam.cjs")
+
+    home = Path.home()
+    candidates.extend([
+        home / "Documents" / "devteam" / "lib" / "devteam.cjs",
+        home / ".claude" / "plugins" / "marketplaces" / "devteam" / "lib" / "devteam.cjs",
+    ])
+
+    cache_root = home / ".claude" / "plugins" / "cache" / "devteam" / "devteam"
+    if cache_root.exists():
+        candidates.extend(sorted(cache_root.glob("*/lib/devteam.cjs"), reverse=True))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+
+    return candidates[0].resolve()
 
 
 def find_root(root_arg: Optional[str]) -> Path:
@@ -33,7 +61,7 @@ def find_root(root_arg: Optional[str]) -> Path:
     if DEFAULT_ROOT and DEFAULT_ROOT.exists():
         return DEFAULT_ROOT
 
-    return cwd
+    return Path.cwd().resolve()
 
 
 def env_track() -> Optional[str]:
@@ -498,7 +526,7 @@ def main() -> None:
     parser.add_argument("--root", help="Workspace root. Defaults to cwd/parents with .devteam/config.yaml, then DEVTEAM_ROOT.")
     parser.add_argument("--set", help="Workspace set / track. Defaults to DEVTEAM_TRACK, then workspace default.")
     parser.add_argument("--run", help="Run id.")
-    parser.add_argument("--cli", default=os.environ.get("DEVTEAM_CLI", str(DEFAULT_CLI)))
+    parser.add_argument("--cli", help="Path to devteam.cjs. Defaults to DEVTEAM_CLI, then bundled plugin/repo locations.")
     parser.add_argument("--full", action="store_true", help="Print a larger command surface.")
     parser.add_argument("--tracks-only", action="store_true", help="Print available tracks and exit.")
     parser.add_argument("--all-tracks", action="store_true", help="Show parked/archived tracks in the picker.")
@@ -509,7 +537,7 @@ def main() -> None:
     args = parser.parse_args()
 
     root = find_root(args.root)
-    cli = Path(args.cli).expanduser().resolve()
+    cli = find_devteam_cli(args.cli)
     if not cli.exists():
         raise SystemExit(f"devteam CLI not found: {cli}")
 

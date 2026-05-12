@@ -1,6 +1,6 @@
 # devteam
 
-[![v2.2.0](https://img.shields.io/badge/version-2.2.0-orange)](https://github.com/wz1qqx/devteam)
+[![v2.2.1](https://img.shields.io/badge/version-2.2.1-orange)](https://github.com/wz1qqx/devteam)
 
 `devteam` is a lightweight workspace control layer for multi-repo development.
 It helps an agent or human session understand the current workspace, choose a

@@ -47,11 +47,14 @@ python3 scripts/devteam_status_summary.py --root <workspace-root> --run <run-id>
 The script uses:
 
 ```bash
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs status --root <root> --json
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs status --root <root> --set <active-workspace-set> --json
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs session list --root <root> --set <active-workspace-set> --limit 3
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs session lint --root <root> --set <active-workspace-set>
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs session archive-plan --root <root> --text
+DEVTEAM_BIN="${DEVTEAM_CLI:-${HOME}/Documents/devteam/lib/devteam.cjs}"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | tail -1)
+node "$DEVTEAM_BIN" status --root <root> --json
+node "$DEVTEAM_BIN" status --root <root> --set <active-workspace-set> --json
+node "$DEVTEAM_BIN" session list --root <root> --set <active-workspace-set> --limit 3
+node "$DEVTEAM_BIN" session lint --root <root> --set <active-workspace-set>
+node "$DEVTEAM_BIN" session archive-plan --root <root> --text
 ```
 
 It auto-selects the latest readable `.devteam/runs/<run-id>` when present,
@@ -113,7 +116,10 @@ Interpretation rules:
 If the script is unavailable, run:
 
 ```bash
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs status --root <root> --json
+DEVTEAM_BIN="${DEVTEAM_CLI:-${HOME}/Documents/devteam/lib/devteam.cjs}"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | tail -1)
+node "$DEVTEAM_BIN" status --root <root> --json
 ```
 
 Then summarize the JSON using the response shape above.

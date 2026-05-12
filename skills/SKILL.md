@@ -22,8 +22,11 @@ skills:
 If those skills are unavailable, run the CLI directly:
 
 ```bash
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs workspace context --root "$PWD" --for codex --text
-node /Users/ppio-dn-289/Documents/devteam/lib/devteam.cjs track list --root "$PWD" --active-only --text
+DEVTEAM_BIN="${DEVTEAM_CLI:-${HOME}/Documents/devteam/lib/devteam.cjs}"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
+[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | tail -1)
+node "$DEVTEAM_BIN" workspace context --root "$PWD" --for codex --text
+node "$DEVTEAM_BIN" track list --root "$PWD" --active-only --text
 ```
 
 ## Command Surface
