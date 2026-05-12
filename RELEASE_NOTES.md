@@ -1,153 +1,147 @@
 # devteam Release Notes
 
-## 2026-04-19 - Build mode + deploy profile ergonomics
+## 2.1.0 - .devteam workspace runtime
 
-- **Authoritative build stage mode**: feature `build.mode` (values: `skip`, `sync_only`, `source_install`, `docker`). Legacy `ship.metal.build_mode` is merged into `build.mode` when `build.mode` is omitted, then mirrored back onto `ship.metal.build_mode` for `bare_metal` features.
-- **`deploy.active_profile`**: optional single-field switch; loader selects `deploy.profiles[key]`, derives `ship.strategy`, and sets `deploy.deploy_profile` (k8s) or `ship.metal.deploy_profile` (bare metal venv/docker).
-- **`init team` / `init team-deploy` flags**: `--ship-strategy k8s|bare_metal` and `--deploy-profile <key>` merge into init JSON; presence is recorded under `init_overrides`.
-- Tests: `tests/week14-ship-profile-and-init-flags.test.cjs`.
+This release resets devteam around the current workspace model:
+local Mac worktrees, session-selected tracks, remote venv validation, image
+planning, pre-production deploy evidence, and reusable skills.
 
-## 2026-04-17 - Bare-Metal Integration Release
+The active runtime is `.devteam/config.yaml`. The previous feature pipeline
+runtime has been removed from the CLI and generated command surface.
 
-This release marks devteam as production-usable for hybrid deployment workflows.  
-The core milestone is making `bare_metal` a first-class shipping strategy across config, orchestration, docs, and tests.
+### Current Workflow
 
-### Highlights
+1. Open a devteam-managed workspace.
+2. Read workspace context and choose a track for the current session.
+3. Start or continue a run under `.devteam/runs/<run-id>/`.
+4. Inspect worktrees and sync selected changes to the remote test host.
+5. Validate in the configured remote venv and record evidence.
+6. Review image plans, prepare build contexts when useful, and record image
+   build evidence.
+7. Review deploy plans and record deploy plus post-deploy verification evidence.
+8. Publish validated branches only after the run gate is ready.
 
-- **First-class ship strategy**
-  - `ship.strategy` now supports `k8s | bare_metal`
-  - `bare_metal` no longer behaves like a side-path workaround
+### Runtime Surface
 
-- **Strategy-aware build stage**
-  - `ship.metal.build_mode` supports:
-    - `skip`
-    - `sync_only` (default when omitted)
-    - `source_install`
-    - `docker`
-  - Runtime override supported with:
-    - `/devteam team <feature> --build-mode <mode>`
-  - Built-in bootstrap supported with:
-    - `/devteam init bare-metal --feature <name> --host <user@host> --profile <name>`
+Primary CLI commands:
 
-- **Fail-fast configuration validation**
-  - Reject invalid `ship.strategy`
-  - Reject `bare_metal` missing `ship.metal`
-  - Reject `bare_metal` missing `ship.metal.host`
-  - Reject invalid `ship.metal.build_mode`
+- `workspace scaffold|onboard|context`
+- `track list|status|context|bind|use`
+- `presence list|touch|clear`
+- `session start|snapshot|record|status|handoff|list|lint|archive-plan|archive|supersede-plan|supersede-stale|close|supersede|reopen`
+- `status`
+- `doctor [agent-onboarding]`
+- `ws status|materialize|publish-plan|publish`
+- `env list|doctor|refresh`
+- `sync plan|apply|status`
+- `remote-loop plan|start|doctor|refresh|sync|record-test|status`
+- `image plan|prepare|record`
+- `deploy plan|record|verify-record`
+- `skill list|status|lint|install`
+- `knowledge list|search|lint|capture`
 
-- **Execution-boundary hardening retained**
-  - run identity freeze via `RUN.json`
-  - dirty-worktree gate
-  - slot conflict gate
-  - source path gate (`run check-path`)
-  - build provenance capture (`source_refs`)
+The router no longer exposes feature-pipeline commands such as `init`,
+`config`, `state`, `pipeline`, `run`, `tasks`, `hooks`, `orchestration`,
+`checkpoint`, `build record`, or `stage-result`.
 
-### Behavior Summary
+### Workspace And Track Model
 
-- **Builder**
-  - Docker mode: build + push + `build record`
-  - Bare-metal modes: sync/install style build stage without Docker dependency
+- Tracks are session-scoped. `defaults.workspace_set` is only a default hint.
+- Use `--set <track>` or `DEVTEAM_TRACK` for the current session.
+- `track list --active-only --text` is the default picker surface for agents.
+- `presence` records soft-lock hints for concurrent sessions; it never blocks
+  sync, test, build, publish, or deploy.
+- `session handoff --text` provides an agent continuation packet before a
+  context switch.
 
-- **Shipper**
-  - k8s mode: `kubectl`-driven deployment
-  - bare_metal mode: stop -> sync -> start -> health poll -> first inference
+### Remote Validation
 
-- **Verifier**
-  - k8s mode: cluster log and service checks
-  - bare_metal mode: SSH log checks + direct service smoke checks
+- `env doctor` inspects local profile fields and optional read-only remote checks.
+- `env refresh` plans or executes editable vLLM remote venv refreshes.
+- `sync plan/apply` supports normal rsync and relative patch sync strategies.
+- `remote-loop` wraps the common source-to-remote-venv loop while leaving the
+  exact test command flexible per change.
+- Test evidence is recorded from explicit summaries or pytest logs rather than
+  predefined test profiles.
 
-### Documentation Updates
+### Image And Deploy Flow
 
-- `README.md`
-  - added release snapshot and strategy-aware behavior notes
-  - added `--build-mode` option documentation
-  - added built-in bare-metal scaffold bootstrap instructions
-  - aligned agent table and architecture flow with actual runtime behavior
-  - replaced absolute local-file links with repository-relative links
+Image profiles are contracts first:
 
-- `skills/references/schema.md`
-  - formalized `ship.metal.build_mode` in schema reference
+- `tag_patch_image`: start from a pinned vLLM tag image and overlay safe source
+  changes for fast iteration.
+- `full_source_image`: build from source worktrees when the base is not a known
+  tag or the patch is not safe for overlay.
 
-### Regression Coverage
+`image prepare` materializes a local `.devteam/image-contexts` build context but
+does not run Docker or push images. `image record` stores build evidence in the
+run.
 
-Validated with integration-focused tests, including:
+Deploy profiles describe pre-production targets. `deploy record` and
+`deploy verify-record` are separate so deployment and validation evidence stay
+auditable.
 
-- `tests/week12-bare-metal-ship-strategy.test.cjs`
-- `tests/week3-stage-result-contract.test.cjs`
-- `tests/week1-core.test.cjs`
+### Skills
 
-### Known Deferred Work
+Reusable skills are managed separately from recipes and wiki notes.
 
-- automated A/B compare workflow for bare metal
-- multi-node bare-metal orchestration
-- additional shipping strategies beyond `k8s` and `bare_metal`
-- **deploy symmetry** (tracked separately below)
+Included skills:
 
-### Upgrade Guidance
+- `devteam-console`: one-screen daily workspace console.
+- `devteam-status`: compact workspace/run status summary.
+- `vllm-opt`: independent vLLM benchmark, profiler, and kernel-category
+  optimization workflow.
 
-If you are adopting bare metal now:
+Use `skill status --root <workspace> --text` to check whether installed skill
+copies are current, missing, drifted, or invalid.
 
-1. set `ship.strategy: bare_metal`
-2. provide `ship.metal.host`, `sync_script`, `start_script`
-3. optionally set `ship.metal.build_mode` (defaults to `sync_only`)
-4. run a smoke pipeline first:
+### Agent Onboarding
+
+`workspace onboard --write` generates:
+
+- `AGENTS.md`
+- `CLAUDE.md`
+- `README.devteam.md`
+
+`doctor agent-onboarding --text` verifies that those files point agents to
+workspace context, track selection, and the current skill entry points.
+
+### Cleanup In This Release
+
+- Removed feature-pipeline runtime modules and tests.
+- Removed old prompt assets and generated command exposure for the previous
+  pipeline surface.
+- Renamed workspace runtime modules to current responsibility names:
+  - `workspace-config.cjs`
+  - `session-manager.cjs`
+  - `action-plan.cjs`
+  - `workspace-doctor.cjs`
+  - `skill-manager.cjs`
+  - `knowledge-manager.cjs`
+- Replaced migration-era naming in tests and docs.
+- Preserved reusable optimization knowledge as the independent `vllm-opt` skill.
+
+### Validation
+
+Release checks:
 
 ```bash
-/devteam team <feature> --stages build,ship,verify --build-mode sync_only
+node tests/week4-command-generation.test.cjs
+node tests/week4-release-hygiene.test.cjs
+node tests/week4-hooks.test.cjs
+node tests/week4-statusline.test.cjs
+node tests/week5-version.test.cjs
+node tests/week15-workspace.test.cjs
+node lib/devteam.cjs skill lint --root <workspace-root> --text
+node lib/devteam.cjs doctor agent-onboarding --root <workspace-root> --text
+node lib/devteam.cjs skill status --root <workspace-root> --text
+git diff --check
 ```
 
----
+## Deferred Work
 
-## Design Backlog
-
-### Deploy symmetry: bare-metal and K8s as first-class citizens
-
-**Intent:** Both deployment targets should be expressed uniformly through `deploy.profiles`,
-with `deploy.active_profile` as the single switch. `ship.strategy` should be derived
-automatically from the active profile type, not set explicitly.
-
-**Current state (as of 2026-04-19):**
-- `config.cjs:resolveDeployActiveProfile()` is fully implemented: reads `deploy.active_profile`,
-  derives `ship.strategy`, writes back `deploy.deploy_profile` or `ship.metal.deploy_profile`.
-- `shipper.md` still has `LEGACY_K8S_DEPLOY` and `LEGACY_BARE_METAL_DEPLOY` branches that
-  bypass the unified `PROFILE_SHIP` path.
-- `schema.md` documents `deploy.active_profile` as optional; `ship.strategy` is not marked
-  as derived/deprecated.
-- Feature configs (`kimi-pd-pegaflow`, etc.) still use explicit `ship.strategy` + flat
-  `deploy.yaml_file` rather than `deploy.profiles` + `active_profile`.
-
-**Work needed for next refactor:**
-1. `shipper.md`: make `PROFILE_SHIP` the primary path; demote `LEGACY_*_DEPLOY` to explicit
-   opt-in fallback (e.g., when `deploy.profiles` is absent).
-2. `schema.md`: mark `deploy.active_profile` as the recommended primary field; annotate
-   `ship.strategy` as "auto-derived when active_profile is set".
-3. `orchestrator.md`: derive `SHIP_STRATEGY` from `active_profile` type first.
-4. Feature config migration: express all deployment targets as named profiles under
-   `deploy.profiles`; set `active_profile` to switch; remove explicit `ship.strategy`.
-5. `ship.metal` remains for dev-workflow fields only (`sync_script`, `setup_script`,
-   `start_script`); these are bare-metal dev loop concerns, not deployment config.
-
-**Desired end state for a feature config:**
-```yaml
-deploy:
-  active_profile: paigpu-a     # ← the only field to change when switching target
-  profiles:
-    b200-venv:
-      type: bare_metal_venv    # → ship.strategy = bare_metal (auto-derived)
-      host: ...
-      start_cmd: ...
-      health_url: ...
-    paigpu-a:
-      type: k8s                # → ship.strategy = k8s (auto-derived)
-      cluster: paigpu-a
-      namespace: dynamo-system
-      yaml: deploy/feature/disagg.yaml
-      dgd_name: ...
-
-ship:
-  metal:                       # dev-loop only; ignored when active profile is k8s
-    profile: b200-lab
-    sync_script: build/sync.sh
-    setup_script: build/install-wheels.sh
-    start_script: build/start.sh
-```
+- Knowledge/wiki import and capture flows still need a focused redesign.
+- Hook behavior should be reviewed against long-running multi-session work.
+- Build profiles should continue to be validated against real vLLM tag-patch and
+  full-source image builds.
+- Deploy verification should accumulate concrete recipes per cluster or target.
