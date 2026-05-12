@@ -45,7 +45,7 @@ function syncReadme() {
   const filePath = path.join(repoRoot, 'README.md');
   const current = fs.readFileSync(filePath, 'utf8');
   const next = current.replace(
-    /\[!\[v[^\]]+\]\(https:\/\/img\.shields\.io\/badge\/version-[^)]+\)\(https:\/\/github\.com\/wz1qqx\/devteam\)/,
+    /\[!\[v[^\]]+\]\(https:\/\/img\.shields\.io\/badge\/version-[^)]+\)\]\(https:\/\/github\.com\/wz1qqx\/devteam\)/,
     `[![v${targetVersion}](https://img.shields.io/badge/version-${targetVersion}-orange)](https://github.com/wz1qqx/devteam)`
   );
 

@@ -48,10 +48,18 @@ function testSyncVersionCheckPasses() {
   assert.match(output, new RegExp(`version sync ok: ${escapeRegex(version)}`));
 }
 
+function testWorkspaceAcceptanceScriptExists() {
+  const script = readText('bin/check-workspace-acceptance.cjs');
+
+  assert.match(script, /DEFAULT_WORKSPACE/);
+  assert.match(script, /llmd-vllm-v020-pega-v021/);
+}
+
 function main() {
   testVersionFileMatchesPublishedMetadata();
   testSyncCacheReadsVersionFile();
   testSyncVersionCheckPasses();
+  testWorkspaceAcceptanceScriptExists();
   console.log('version: ok');
 }
 

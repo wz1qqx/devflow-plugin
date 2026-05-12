@@ -1,6 +1,6 @@
 # devteam Release Notes
 
-## 2.1.0 - .devteam workspace runtime
+## 2.2.0 - .devteam workspace runtime
 
 `devteam` is centered on the current `.devteam/config.yaml` workspace runtime
 used by `llmd-vllm-v020-pega-v021`: local Mac worktrees, session-selected
@@ -113,6 +113,7 @@ node tests/workspace-runtime.test.cjs
 node lib/devteam.cjs skill lint --root <workspace-root> --text
 node lib/devteam.cjs doctor agent-onboarding --root <workspace-root> --text
 node lib/devteam.cjs skill status --root <workspace-root> --text
+node bin/check-workspace-acceptance.cjs --root <workspace-root>
 git diff --check
 ```
 

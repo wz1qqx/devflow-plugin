@@ -1,6 +1,6 @@
 # devteam
 
-[![v2.1.0](https://img.shields.io/badge/version-2.1.0-orange)](https://github.com/wz1qqx/devteam)
+[![v2.2.0](https://img.shields.io/badge/version-2.2.0-orange)](https://github.com/wz1qqx/devteam)
 
 `devteam` is a lightweight workspace control layer for multi-repo development.
 It helps an agent or human session understand the current workspace, choose a
@@ -150,6 +150,7 @@ node tests/command-generation.test.cjs
 node tests/release-hygiene.test.cjs
 node lib/devteam.cjs skill lint --root <workspace-root> --text
 node lib/devteam.cjs doctor agent-onboarding --root <workspace-root> --text
+node bin/check-workspace-acceptance.cjs --root <workspace-root>
 git diff --check
 ```
 
