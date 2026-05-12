@@ -7,7 +7,7 @@ const path = require('path');
 const { getRepoRoot } = require('../lib/version.cjs');
 
 const repoRoot = getRepoRoot();
-const LEGACY_PATTERN = /DEVFLOW_BIN|devflow|my-dev/;
+const REMOVED_RUNTIME_PATTERN = /DEVFLOW_BIN|devflow|my-dev/;
 const SCAN_ROOTS = [
   'README.md',
   'NEXT_SESSION_PLAN.md',
@@ -48,7 +48,7 @@ function listFiles(relativePath) {
   return files;
 }
 
-function testLegacyTermsForbiddenInRuntimeDocsAndConfig() {
+function testRemovedRuntimeTermsForbiddenInRuntimeDocsAndConfig() {
   const candidateFiles = SCAN_ROOTS.flatMap(listFiles)
     .filter(file => file.endsWith('.md') || file.endsWith('.js') || file.endsWith('.cjs') || file.endsWith('.sh'));
   if (isTracked('.claude/settings.local.json')) {
@@ -57,7 +57,7 @@ function testLegacyTermsForbiddenInRuntimeDocsAndConfig() {
 
   for (const relativePath of candidateFiles) {
     const content = readText(relativePath);
-    assert.doesNotMatch(content, LEGACY_PATTERN, `Legacy naming should not appear in ${relativePath}`);
+    assert.doesNotMatch(content, REMOVED_RUNTIME_PATTERN, `Removed runtime naming should not appear in ${relativePath}`);
   }
 }
 
@@ -74,7 +74,7 @@ function testSetupUsesDevteamPathsOnly() {
 }
 
 function main() {
-  testLegacyTermsForbiddenInRuntimeDocsAndConfig();
+  testRemovedRuntimeTermsForbiddenInRuntimeDocsAndConfig();
   testSetupUsesDevteamPathsOnly();
   console.log('week4-release-hygiene: ok');
 }

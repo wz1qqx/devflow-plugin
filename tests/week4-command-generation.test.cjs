@@ -36,9 +36,9 @@ function testGeneratedCommandDocsUseDevteamBinOnly() {
     const content = readText(relativePath);
     assert.match(content, /DEVTEAM_BIN/, `${relativePath} should contain DEVTEAM_BIN`);
     assert.doesNotMatch(content, /DEVFLOW_BIN/, `${relativePath} should not contain DEVFLOW_BIN`);
-    assert.doesNotMatch(content, /INIT=\$\(node "\$DEVTEAM_BIN" init/, `${relativePath} should not bootstrap the legacy init flow`);
-    assert.doesNotMatch(content, /available_features/, `${relativePath} should not prompt for legacy features`);
-    assert.doesNotMatch(content, /\.dev\/features/, `${relativePath} should not mention legacy feature state`);
+    assert.doesNotMatch(content, /INIT=\$\(node "\$DEVTEAM_BIN" init/, `${relativePath} should not bootstrap the removed init flow`);
+    assert.doesNotMatch(content, /available_features/, `${relativePath} should not prompt for removed features`);
+    assert.doesNotMatch(content, /\.dev\/features/, `${relativePath} should not mention removed feature state`);
   }
 }
 

@@ -5,9 +5,9 @@ description: "Workspace control layer for devteam-managed multi-track developmen
 
 # devteam
 
-Use the lightweight `.devteam` workflow by default. The older feature-pipeline
-runtime is not available in the current CLI; historical behavior should only be
-recovered from git history when explicitly needed.
+Use the `.devteam` workspace workflow by default. Treat reusable capabilities as
+independent skills and keep workspace recipes, run evidence, and wiki notes
+separate.
 
 ## Primary Entry
 

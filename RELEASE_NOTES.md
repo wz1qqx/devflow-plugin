@@ -119,6 +119,8 @@ workspace context, track selection, and the current skill entry points.
   - `skill-manager.cjs`
   - `knowledge-manager.cjs`
 - Replaced migration-era naming in tests and docs.
+- Removed the one-off wiki migration script and the stale `learn` skill that
+  still referenced removed CLI entry points.
 - Preserved reusable optimization knowledge as the independent `vllm-opt` skill.
 
 ### Validation

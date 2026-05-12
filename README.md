@@ -8,10 +8,9 @@ track, sync local worktree changes to a remote development host, record remote
 venv validation, plan image builds, and capture pre-production deployment
 evidence.
 
-The current architecture is centered on `.devteam/config.yaml`, not on the
-older `workspace.yaml + .dev/features/<feature>` pipeline. The old runtime has
-been removed from the current CLI surface; reusable capabilities such as
-`vllm-opt` live on as independent skills.
+The current architecture is centered on `.devteam/config.yaml`. Reusable
+capabilities such as `vllm-opt` live on as independent skills instead of being
+mixed into workspace recipes.
 
 ## Daily Model
 
@@ -140,22 +139,6 @@ docs live in `commands/devteam/*.md`.
 - `templates/onboarding`: generated `AGENTS.md`, `CLAUDE.md`, and `README.devteam.md`.
 - `tests/week15-workspace.test.cjs`: current broad regression suite for the
   lightweight workspace model.
-
-## Removed Legacy Surface
-
-The older feature pipeline used:
-
-- `workspace.yaml`
-- `.dev/features/<feature>/`
-- `team`, `feature`, `pause`, `resume`, `pipeline`, `run`, `tasks`, `hooks`,
-  `stage-result`, and `build record`
-- role prompts under `agents/`
-- workflow skills such as `orchestrator.md`, `pause.md`, and `resume.md`
-
-That code is intentionally no longer exposed through the generated command
-registry or CLI router. Historical behavior should be recovered from git
-history only when explicitly needed; new work should use `.devteam/config.yaml`
-plus independent skills.
 
 ## Validation
 

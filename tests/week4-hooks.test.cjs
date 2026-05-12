@@ -24,7 +24,7 @@ function testHookRegistryUsesDevteamEntrypoints() {
   assert.match(stopCommand, /hooks\/devteam-persistent\.js/);
 }
 
-function testLegacyWrappersRemoved() {
+function testRemovedWrappersStayRemoved() {
   assert.strictEqual(exists('hooks/my-dev-context-monitor.js'), false, 'hooks/my-dev-context-monitor.js should be removed');
   assert.strictEqual(exists('hooks/devflow-persistent.js'), false, 'hooks/devflow-persistent.js should be removed');
   assert.strictEqual(exists('hooks/my-dev-statusline.js'), false, 'hooks/my-dev-statusline.js should be removed');
@@ -32,7 +32,7 @@ function testLegacyWrappersRemoved() {
 
 function main() {
   testHookRegistryUsesDevteamEntrypoints();
-  testLegacyWrappersRemoved();
+  testRemovedWrappersStayRemoved();
   console.log('week4-hooks: ok');
 }
 

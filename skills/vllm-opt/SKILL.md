@@ -6,8 +6,8 @@ description: "Analyze vLLM inference performance regressions with benchmarks, pr
 # vLLM Optimization
 
 Use this skill as an independent optimization workflow for a selected devteam
-track. It is not part of the old feature pipeline and does not use
-`workspace.yaml`, `.dev/features`, orchestrator handoffs, or `STAGE_RESULT`.
+track. It reads workspace and track context from `.devteam/config.yaml`, then
+works from benchmark and profiler evidence.
 
 Core rule: benchmark first, profile second, recommend changes last.
 

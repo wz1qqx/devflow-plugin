@@ -2,9 +2,8 @@
 # Source of truth for Claude/Codex command definitions.
 # Run `node bin/generate-commands.cjs` to regenerate .md files.
 #
-# This registry exposes the lightweight .devteam workspace workflow and
-# independent reusable skills. The older feature-pipeline runtime is not part of
-# the current command surface.
+# This registry exposes the .devteam workspace workflow and independent
+# reusable skills.
 
 _skip: []
 
