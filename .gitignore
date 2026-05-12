@@ -12,7 +12,10 @@ Thumbs.db
 *.swp
 *.swo
 
-# Working state (per-workspace, not part of plugin)
+# Workspace state (per-workspace, not part of plugin)
+.devteam/
+
+# Obsolete local workspace leftovers
 .dev/
 .dev.yaml
 
