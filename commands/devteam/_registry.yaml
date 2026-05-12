@@ -1,41 +1,14 @@
 # devteam Command Registry
-# Source of truth for all command definitions.
+# Source of truth for Claude/Codex command definitions.
 # Run `node bin/generate-commands.cjs` to regenerate .md files.
+#
+# This registry intentionally exposes only the lightweight .devteam workspace
+# workflow. Older feature-pipeline commands still exist in the CLI for now, but
+# are not part of the daily agent-facing surface.
 
 _skip: []
 
 commands:
-  # ═══════════════════════════════════════
-  # CORE — Automated Pipeline
-  # ═══════════════════════════════════════
-
-  team:
-    description: Automated multi-agent pipeline — configurable stages with optimization feedback loops
-    argument-hint: "<feature> [--stages spec,plan,code,...] [--max-loops N]"
-    objective: Start the automated pipeline for a feature. Select stages with --stages (default all). Supports checkpoint resume if interrupted.
-    skill: orchestrator.md
-    allowed-tools: [Read, Write, Bash, Glob, Grep, Agent, AskUserQuestion]
-
-  # ═══════════════════════════════════════
-  # SESSION MANAGEMENT
-  # ═══════════════════════════════════════
-
-  pause:
-    description: Save feature-scoped session state — writes HANDOFF.json and refreshes STATE.md
-    objective: Capture the current feature session into .dev/features/<feature>/HANDOFF.json, refresh feature STATE.md, and preserve zero-loss resume context.
-    skill: pause.md
-    allowed-tools: [Read, Write, Bash, Glob, Grep]
-
-  resume:
-    description: Restore a feature-scoped session and show current status
-    objective: Restore session state from .dev/features/<feature>/HANDOFF.json, STATE.md, and context.md.
-    skill: resume.md
-    allowed-tools: [Read, Bash, Glob, Grep]
-
-  # ═══════════════════════════════════════
-  # PROJECT VIEW
-  # ═══════════════════════════════════════
-
   workspace:
     description: Workspace management — scaffold .devteam layout and agent onboarding/context
     argument-hint: "<scaffold|onboard|context> [--root <path>] [--name <name>] [--write] [--force] [--for codex|claude|human] [--text]"
@@ -57,12 +30,26 @@ commands:
     allowed-tools: [Read, Write, Bash, Glob, Grep]
     inline-process: "Run `node \"$DEVTEAM_BIN\" track $ARGUMENTS`. Track selection order is --set, DEVTEAM_TRACK/DEVTEAM_WORKSPACE_SET, then .devteam/config.yaml defaults.workspace_set. Track names accept canonical names plus configured aliases, normalized for spaces, underscores, and hyphens; if an alias is ambiguous, ask the user to choose the canonical track. For list, display each workspace set with aliases, lifecycle status, inferred env, sync, build, deploy flow, validation profile, repo count, selected marker, workspace dirty/missing totals, latest run phase, and presence hints; pass --text for the compact track dashboard and --no-runtime to skip workspace/run/presence inspection. Tracks may declare status: active, parked, or archived. With --active-only, show active tracks plus selected/default, dirty/missing, presence, or unfinished-run tracks; omit it to inspect all tracks. For status, display selected track source, workspace default, inferred profile bundle, active worktree totals, dirty worktrees, latest run, and next action. For context, print an agent-focused selected-track context covering purpose, worktrees, remote env/venv, sync, build/deploy profiles, latest run, presence, and primary next action. For bind <track>, print an export DEVTEAM_TRACK command for this terminal/session without modifying config. For use <track>, update only the defaults block in .devteam/config.yaml; use --dry-run to preview and avoid it when multiple sessions may be active. This command does not touch worktrees, remote servers, images, or clusters."
 
-  remote-loop:
-    description: Remote validation loop — start, sync, doctor, refresh, record tests, and status for the active track
-    argument-hint: "<plan|start|doctor|refresh|sync|record-test|status> [--root <path>] [--run <id>] [--yes] [--branch-patch] [--remote-pytest-log <path>] [--text]"
-    objective: Run the active track's lightweight local-to-remote source/venv validation loop without choosing image or deployment recipes.
+  presence:
+    description: Session presence — soft-lock hints for concurrent track work
+    argument-hint: "<list|touch|clear> [--root <path>] [--set <track>] [--session-id <id>] [--purpose <text>] [--run <id>] [--ttl-seconds <n>] [--text] [--yes]"
+    objective: Record and inspect lightweight active-session presence under .devteam/presence without blocking work.
     allowed-tools: [Read, Write, Bash, Glob, Grep]
-    inline-process: "Run `node \"$DEVTEAM_BIN\" remote-loop $ARGUMENTS`. plan prints the concrete command sequence for the active track; pass --text for the compact terminal view. If the latest open run is stale because worktree HEAD changed, keep start/status visible but use <fresh-run-id> for evidence-writing commands. start creates a no-build/no-deploy run; pass --text to print the new run id plus concrete doctor/sync/record-test follow-up commands. doctor runs env doctor --remote and records env-doctor evidence. refresh only executes with --yes and records env-refresh evidence. sync shows dirty-only sync by default, only applies with --yes, records sync evidence, and accepts --branch-patch when rebuilding the remote mirror from the full branch patch. record-test records local or remote pytest logs with --pytest-log or --remote-pytest-log. status shows compact status for the latest open active-track run; closed and superseded runs are ignored by default. If --run is omitted and the latest open run is stale, mutating/recording subcommands refuse before remote side effects; start a fresh run first and pass its --run id. Test execution remains manual and per-change."
+    inline-process: "Run `node \"$DEVTEAM_BIN\" presence $ARGUMENTS`. touch writes/refreshes .devteam/presence/<session-id>.json for the selected track with optional run and purpose. list shows active entries grouped by track; pass --all to include expired entries and --ttl-seconds to override the default 45 minute TTL. clear is dry-run by default and removes selected or expired entries only with --yes. Presence is a soft-lock hint only; it never blocks sync, record, build, publish, or deploy."
+
+  session:
+    description: Run session — start, snapshot, status, or record workspace validation runs
+    argument-hint: "<start|snapshot|status|handoff|record|list|lint|archive-plan|archive|supersede-plan|supersede-stale|close|supersede|reopen> [--root <path>] [--set <workspace-set>] [--run <id>] [--limit <n>] [--text] [--all] [--yes] [--kind <kind>] [--status <status>] [--summary <text>] [--pytest-log <path>] [--remote-pytest-log <path>]"
+    objective: Create, inspect, and update an auditable .devteam/runs/<id>/ directory for the local-to-remote validation loop.
+    allowed-tools: [Read, Write, Bash, Glob, Grep]
+    inline-process: "Run `node \"$DEVTEAM_BIN\" session start $ARGUMENTS` unless the user explicitly asks for snapshot, status, handoff, record, list, lint, archive-plan, archive, supersede-plan, supersede-stale, close, supersede, or reopen. For start, display run_id, path, readme_path, workspace_set, profiles, and readiness status. Use --no-build --no-deploy for source/venv validation sessions before a concrete image or pre-production target has been chosen. For status, display phase, latest evidence, workspace totals, sync/image/deploy/deploy-verify/publish gates, publish-after-validation plan, and next_actions; if --run is omitted it reads the latest open readable run, skips historical runs that no longer match current config, and honors --set to pick the latest run for one track. For handoff, print an agent-focused continuation packet with workspace, track, run, lifecycle, stale-head status, profiles, worktrees, verified evidence, do-not rules, and next actions; use it before context switches or when handing work to another session. session list is read-only and displays recent open runs, phase, evidence summary, first next_action, and supports --set, --limit, --all, and --text. session lint is read-only and reports malformed run metadata, runs referencing deleted workspace sets/profiles, and stale worktree-head evidence; by default it ignores closed/superseded runs, with --all it audits full history, and with --set its latest_run_id is scoped to that track. session supersede-plan previews stale old runs that have newer open runs on the same track, while blocking each track's latest stale run; session supersede-stale is dry-run by default and marks only supersedeable stale runs when --yes is passed. session close/supersede/reopen update session.json lifecycle metadata without moving evidence; superseded and closed runs stay auditable but are ignored by default active history. session archive-plan is read-only and lists only invalid metadata runs that can be moved to .devteam/runs-archive/. session archive is dry-run by default and moves those invalid run directories only with --yes. session status/handoff/list/lint/archive-plan/archive print JSON by default; pass --text for compact text. For record, append completed step evidence to events.jsonl and README.md with --run, --kind, --status, --summary, and optional --command/--log/--artifact; it refuses closed/superseded runs unless --allow-closed is passed. For pytest, use --pytest-log or --remote-pytest-log to infer kind=test, passed/failed status, and summary from the pytest terminal line."
+
+  status:
+    description: Latest run status — one-screen workspace/run overview
+    argument-hint: "[--root <path>] [--set <workspace-set>] [--run <id>] [--json]"
+    objective: Display the latest .devteam/runs/<id>/ status, including workspace state, run evidence, gates, publish plan, and next actions.
+    allowed-tools: [Read, Bash, Glob, Grep]
+    inline-process: "Run `node \"$DEVTEAM_BIN\" status $ARGUMENTS`. This is a shortcut for session status: if --run is omitted, it reads the latest run whose session metadata still matches current .devteam/config.yaml, skipping malformed/deleted-track history; pass --set to select the latest readable run for one track. By default it prints compact text for daily use; pass --json for the full structured payload. Display phase, latest evidence, workspace totals, sync/image/deploy/deploy-verify/publish gates, publish-after-validation plan, and next_actions."
 
   ws:
     description: Workspace inventory — local repo/worktree status
@@ -85,6 +72,13 @@ commands:
     allowed-tools: [Read, Bash, Glob, Grep]
     inline-process: "Run `node \"$DEVTEAM_BIN\" sync plan $ARGUMENTS` unless another subcommand is provided. Display syncable/missing totals, patch mode, patch file counts, and generated commands. For relative patch sync strategies, branch-patch syncs base_ref..HEAD plus dirty/staged/untracked files and remains the default for sync plan/apply; dirty-only syncs only current working tree, staged, and untracked files for daily incremental validation. `sync apply` is dry-run by default; only pass --yes when the user explicitly asks to execute rsync. With apply --yes --run <id>, append a sync event to that run."
 
+  remote-loop:
+    description: Remote validation loop — start, sync, doctor, refresh, record tests, and status for the active track
+    argument-hint: "<plan|start|doctor|refresh|sync|record-test|status> [--root <path>] [--set <workspace-set>] [--run <id>] [--yes] [--branch-patch] [--remote-pytest-log <path>] [--text]"
+    objective: Run the active track's lightweight local-to-remote source/venv validation loop without choosing image or deployment recipes.
+    allowed-tools: [Read, Write, Bash, Glob, Grep]
+    inline-process: "Run `node \"$DEVTEAM_BIN\" remote-loop $ARGUMENTS`. plan prints the concrete command sequence for the selected track; pass --text for the compact terminal view. If the latest open run is stale because worktree HEAD changed, keep start/status visible but use <fresh-run-id> for evidence-writing commands. start creates a no-build/no-deploy run; pass --text to print the new run id plus concrete doctor/sync/record-test follow-up commands. doctor runs env doctor --remote and records env-doctor evidence. refresh only executes with --yes and records env-refresh evidence. sync shows dirty-only sync by default, only applies with --yes, records sync evidence, and accepts --branch-patch when rebuilding the remote mirror from the full branch patch. record-test records local or remote pytest logs with --pytest-log or --remote-pytest-log. status shows compact status for the latest open selected-track run; closed and superseded runs are ignored by default. If --run is omitted and the latest open run is stale, mutating/recording subcommands refuse before remote side effects; start a fresh run first and pass its --run id. Test execution remains manual and per-change."
+
   image:
     description: Image planning and evidence recording for a workspace set
     argument-hint: "<plan|prepare|record> [--root <path>] [--set <workspace-set>] [--profile <build-profile>] [--run <id>] [--output <path>] [--image <ref>] [--digest <digest>]"
@@ -99,34 +93,6 @@ commands:
     allowed-tools: [Read, Bash, Glob, Grep]
     inline-process: "Run `node \"$DEVTEAM_BIN\" deploy plan $ARGUMENTS`. Display namespace, env, guide, gateway recipe, migrated deploy commands, run_gate, verify_gate, and next_action. Do not mutate the cluster unless the user explicitly asks. Use deploy record after deploying the image, then deploy verify-record after health checks, smoke traffic, or benchmark validation pass."
 
-  session:
-    description: Run session — start, snapshot, status, or record workspace validation runs
-    argument-hint: "<start|snapshot|status|handoff|record|list|lint|archive-plan|archive|supersede-plan|supersede-stale|close|supersede|reopen> [--root <path>] [--set <workspace-set>] [--run <id>] [--limit <n>] [--text] [--all] [--yes] [--kind <kind>] [--status <status>] [--summary <text>] [--pytest-log <path>] [--remote-pytest-log <path>]"
-    objective: Create, inspect, and update an auditable .devteam/runs/<id>/ directory for the local-to-remote validation loop.
-    allowed-tools: [Read, Write, Bash, Glob, Grep]
-    inline-process: "Run `node \"$DEVTEAM_BIN\" session start $ARGUMENTS` unless the user explicitly asks for snapshot, status, handoff, record, list, lint, archive-plan, archive, supersede-plan, supersede-stale, close, supersede, or reopen. For start, display run_id, path, readme_path, workspace_set, profiles, and readiness status. Use --no-build --no-deploy for source/venv validation sessions before a concrete image or pre-production target has been chosen. For status, display phase, latest evidence, workspace totals, sync/image/deploy/deploy-verify/publish gates, publish-after-validation plan, and next_actions; if --run is omitted it reads the latest open readable run, skips historical runs that no longer match current config, and honors --set to pick the latest run for one track. For handoff, print an agent-focused continuation packet with workspace, track, run, lifecycle, stale-head status, profiles, worktrees, verified evidence, do-not rules, and next actions; use it before context switches or when handing work to another session. session list is read-only and displays recent open runs, phase, evidence summary, first next_action, and supports --set, --limit, --all, and --text. session lint is read-only and reports malformed run metadata, runs referencing deleted workspace sets/profiles, and stale worktree-head evidence; by default it ignores closed/superseded runs, with --all it audits full history, and with --set its latest_run_id is scoped to that track. session supersede-plan previews stale old runs that have newer open runs on the same track, while blocking each track's latest stale run; session supersede-stale is dry-run by default and marks only supersedeable stale runs when --yes is passed. session close/supersede/reopen update session.json lifecycle metadata without moving evidence; superseded and closed runs stay auditable but are ignored by default active history. session archive-plan is read-only and lists only invalid metadata runs that can be moved to .devteam/runs-archive/. session archive is dry-run by default and moves those invalid run directories only with --yes. session status/handoff/list/lint/archive-plan/archive print JSON by default; pass --text for compact text. For record, append completed step evidence to events.jsonl and README.md with --run, --kind, --status, --summary, and optional --command/--log/--artifact; it refuses closed/superseded runs unless --allow-closed is passed. For pytest, use --pytest-log or --remote-pytest-log to infer kind=test, passed/failed status, and summary from the pytest terminal line."
-
-  presence:
-    description: Session presence — soft-lock hints for concurrent track work
-    argument-hint: "<list|touch|clear> [--root <path>] [--set <track>] [--session-id <id>] [--purpose <text>] [--run <id>] [--ttl-seconds <n>] [--text] [--yes]"
-    objective: Record and inspect lightweight active-session presence under .devteam/presence without blocking work.
-    allowed-tools: [Read, Write, Bash, Glob, Grep]
-    inline-process: "Run `node \"$DEVTEAM_BIN\" presence $ARGUMENTS`. touch writes/refreshes .devteam/presence/<session-id>.json for the selected track with optional run and purpose. list shows active entries grouped by track; pass --all to include expired entries and --ttl-seconds to override the default 45 minute TTL. clear is dry-run by default and removes selected or expired entries only with --yes. Presence is a soft-lock hint only; it never blocks sync, record, build, publish, or deploy."
-
-  lite:
-    description: Lite workspace migration — create .devteam config and compatibility files
-    argument-hint: "<migrate|assets|compat> [--root <path>] [--from <legacy-workspace>] [--to <new-workspace>] [--apply] [--force]"
-    objective: Migrate legacy workspace.yaml + .dev/features metadata, supporting workspace assets, and legacy runtime compatibility files into the lightweight .devteam workspace model.
-    allowed-tools: [Read, Write, Bash, Glob, Grep]
-    inline-process: "Run `node \"$DEVTEAM_BIN\" lite $ARGUMENTS`. For migrate, confirm the output config path, workspace sets, worktree count, env profiles, and migrated knowledge recipe path. For assets, show copy plan first; only use --apply when the user explicitly asks to copy supporting files such as build.sh, scripts, deploy, guides, hooks, and Dockerfiles. For compat, generate the .dev.yaml projection needed by legacy build.sh; use --legacy-dev-yaml only to preserve old build_history/current_tag while keeping .devteam/config.yaml as source of truth."
-
-  status:
-    description: Latest run status — one-screen workspace/run overview
-    argument-hint: "[--root <path>] [--set <workspace-set>] [--run <id>] [--json]"
-    objective: Display the latest .devteam/runs/<id>/ status, including workspace state, run evidence, gates, publish plan, and next actions.
-    allowed-tools: [Read, Bash, Glob, Grep]
-    inline-process: "Run `node \"$DEVTEAM_BIN\" status $ARGUMENTS`. This is a shortcut for session status: if --run is omitted, it reads the latest run whose session metadata still matches current .devteam/config.yaml, skipping malformed/deleted-track history; pass --set to select the latest readable run for one track. By default it prints compact text for daily use; pass --json for the full structured payload. Display phase, latest evidence, workspace totals, sync/image/deploy/deploy-verify/publish gates, publish-after-validation plan, and next_actions."
-
   skill:
     description: Skill management — discover, lint, and install devteam Codex skills
     argument-hint: "<list|status|lint|install> [name] [--root <path>] [--target <path>] [--all] [--yes] [--text]"
@@ -134,87 +100,9 @@ commands:
     allowed-tools: [Read, Write, Bash, Glob, Grep]
     inline-process: "Run `node \"$DEVTEAM_BIN\" skill $ARGUMENTS`. list/status shows repo skills plus workspace .devteam/skills folders, their install target, and whether installed copies are missing/current/drift/invalid. lint validates SKILL.md frontmatter, folder/name alignment, and duplicate sources. install is dry-run by default; only use --yes when the user explicitly asks to copy skill folders into the target skills directory. Default target is ~/.agents/skills; use --target to override."
 
-  diff:
-    description: Show worktree changes across repositories
-    argument-hint: "[repo]"
-    objective: Display a summary of uncommitted and staged changes across all worktrees managed by the project.
-    init-as: diff
-    context-prefix: "diff"
-    inline-process: "For each repo in $INIT, run git -C <dev_worktree> diff --stat <base_ref>. If specific repo given, show full diff. Otherwise show summary table."
-
-  # ═══════════════════════════════════════
-  # KNOWLEDGE
-  # ═══════════════════════════════════════
-
-  learn:
-    description: Research a topic (code, URL, or file) and create/update wiki pages
-    argument-hint: "<topic|feature|URL|filepath>"
-    objective: Research a topic from any source and build/update focused, interlinked wiki pages.
-    skill: learn.md
-    allowed-tools: [Read, Write, Bash, Glob, Grep, WebSearch, WebFetch, Agent]
-
   knowledge:
     description: Knowledge operations — list/search/lint/capture recipes, wiki, and skills
     argument-hint: "<list|search|lint|capture> [query] [--root <path>] [--type <wiki|recipes|skills|all>] [--run <id>] [--apply]"
     objective: Manage the lightweight .devteam knowledge layer: recipes, wiki notes, reusable skills, and run-to-knowledge capture drafts.
     allowed-tools: [Read, Write, Bash, Glob, Grep]
     inline-process: "Run `node \"$DEVTEAM_BIN\" knowledge $ARGUMENTS`. list and search are read-only and cover .devteam/wiki, .devteam/recipes, and .devteam/skills. lint checks missing knowledge dirs, overlong markdown, wiki index coverage, and dead wikilinks. capture reads a run and creates a draft by default; only write it with --apply, and use --to wiki or --to recipes to choose the target."
-
-  # ═══════════════════════════════════════
-  # PROJECT MANAGEMENT
-  # ═══════════════════════════════════════
-
-  feature:
-    description: List features and select/delete — use at session start to pick a feature for this session
-    argument-hint: "[list|delete] [name]"
-    objective: Show all features with status, let user select one for the current session, or delete a feature. When invoked without args, list features and prompt user to choose.
-    init-as: workspace
-    allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
-    inline-process: |
-      1. Run CLI: `node "$DEVTEAM_BIN" features list` to get all features with phase/scope
-      2. Display features as a table: name, description, phase, scope
-      3. If action is `delete`: confirm with AskUserQuestion, then run `node "$DEVTEAM_BIN" features delete <name>`
-      4. If action is `list` or no action: use AskUserQuestion to let user pick a feature
-      5. Keep the selected feature in session context and pass `--feature <selected>` to subsequent devteam CLI/init calls in this session
-      6. Show confirmation: "Feature '<name>' selected for this session"
-
-  init:
-    description: Initialize workspace or add a new feature
-    argument-hint: "<workspace|feature|bare-metal> [name|flags]"
-    objective: Bootstrap a new workspace, add a new feature, or scaffold built-in bare-metal rapid-test assets and wire ship.metal defaults for a feature.
-    init-as: workspace
-    allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
-    inline-process: "Parse action (workspace|feature|bare-metal). WORKSPACE: create workspace.yaml with schema_version 2, create .dev/ directory, configure repos and baselines, set defaults. FEATURE: prompt for name/description/scope, create feature config.yaml, create .dev/features/<name>/ directory, and register the name under defaults.features. BARE-METAL: run `node \"$DEVTEAM_BIN\" init bare-metal --feature <name> [--host user@ip] [--profile <name>] [--config <name>] [--port <port>] [--force] [--no-write-config]` to scaffold `.dev/rapid-test` scripts and profile env."
-
-  cluster:
-    description: Manage Kubernetes clusters — add, use, list
-    argument-hint: "<add|use|list> [name]"
-    objective: Manage cluster profiles in workspace.yaml.
-    init-as: cluster
-    allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
-    inline-process: "Parse action (add/use/list). LIST: show clusters + active. USE: switch active_cluster. ADD: interactive cluster config collection (ssh, namespace, safety, hardware), save to workspace.yaml."
-
-  vllm-opt:
-    description: Standalone vLLM performance analysis — torch profiler, nsight kernels, optimization guidance
-    argument-hint: "<feature> [--regression-report <json>]"
-    objective: Run vLLM performance profiling and kernel analysis for a feature. Produces optimization guidance for the planner. Can accept a regression report from a prior verify run or profile from scratch.
-    init-as: team-vllm-opt
-    allowed-tools: [Read, Write, Bash, Glob, Grep]
-    inline-process: |
-      1. Load context via CLI init
-      2. Spawn the vllm-opter agent: Agent(subagent_type: "devteam:vllm-opter", prompt: "Analyze performance for feature '$FEATURE'. Workspace: $WORKSPACE. [regression report if provided]")
-      3. Display the optimization guidance report returned by the agent
-
-  grafana:
-    description: Set up Prometheus remote_write + Grafana dashboards + alert rules on the active cluster
-    objective: Deploy and configure observability stack from workspace.yaml observability block.
-    init-as: observability
-    allowed-tools: [Read, Write, Bash, Glob, Grep]
-
-  clean:
-    description: Cleanup resources — worktrees, images, K8s resources
-    argument-hint: "[--dry-run]"
-    objective: Scan for and optionally remove orphan worktrees, stale container images, and stale K8s pods.
-    init-as: clean
-    allowed-tools: [Read, Bash, Glob, Grep, AskUserQuestion]
-    inline-process: "Scan worktrees (orphans not in any feature scope), images (stale), pods (Error/CrashLoop). Report findings. With --dry-run, only report. Otherwise confirm each category before cleanup."

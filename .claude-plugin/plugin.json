@@ -1,18 +1,19 @@
 {
   "name": "devteam",
   "version": "2.1.0",
-  "description": "Automated multi-agent pipeline orchestration for full development lifecycle — one command from spec to verified deployment with optimization feedback loops",
+  "description": "Workspace control layer for multi-track local development, remote venv validation, image planning, deployment evidence, and reusable agent skills",
   "author": {
     "name": "gailun"
   },
   "license": "MIT",
   "keywords": [
     "agent",
-    "team",
+    "workspace",
+    "track",
     "orchestration",
     "multi-repo",
     "k8s",
-    "pipeline"
+    "remote-validation"
   ],
   "skills": "./skills/",
   "commands": "./commands/"

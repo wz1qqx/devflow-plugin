@@ -36,6 +36,7 @@ function isTracked(relativePath) {
 
 function listFiles(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) return [];
   const stat = fs.statSync(absolutePath);
   if (stat.isFile()) return [relativePath];
 

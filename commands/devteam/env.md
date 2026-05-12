@@ -17,31 +17,15 @@ $ARGUMENTS
 </context>
 
 <process>
-**Step 1**: Discover CLI tool and load config:
+**Step 1**: Discover the devteam CLI:
 ```bash
 DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
 [ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 [ -n "$DEVTEAM_BIN" ] || { echo "ERROR: devteam.cjs not found" >&2; exit 1; }
-INIT=$(node "$DEVTEAM_BIN" init env)
 ```
 
-If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init env --feature $SELECTED)`
+If no `--root` is provided, use the current workspace or nearest parent containing `.devteam/config.yaml`. Do not select a global active track; ask the user to choose a track or pass `--set <track>` when the command needs one.
 
 **Step 2**: Execute:
-Run `node \"$DEVTEAM_BIN\" env $ARGUMENTS`. For doctor, display local command checks and missing profile fields. `--remote` performs explicit read-only SSH checks; never run remote mutations from this command.
-
-For `remote_dev` profiles, pay special attention to source-mirror and venv fields:
-- `source_dir` should exist and report a clean/expected git status, HEAD, and `git describe`.
-- `venv`, `python`, and `site_packages` should exist.
-- vLLM-like profiles also run an editable import check and print Python version, prefix, package metadata version, and `vllm_file`.
-
-For `env refresh`, display the generated remote command first when `--yes` is absent. Only execute refresh with explicit `--yes`. Refresh is intended for vLLM-like `remote_dev` profiles using `install_mode: editable-precompiled`; it refreshes package metadata after the source mirror HEAD changes.
-
-When `env doctor --remote --run <id>` is used, the command automatically appends an `env-doctor` event to `.devteam/runs/<id>/events.jsonl` and updates the run README.
-
-When `env refresh --yes --run <id>` is used, the command automatically appends an `env-refresh` event to `.devteam/runs/<id>/events.jsonl` and updates the run README.
-
-If `--set` or `DEVTEAM_TRACK` selects a track, recorded env evidence must target
-a run from that same track. Use `--allow-cross-track` only for an intentional
-exception.
+Run `node "$DEVTEAM_BIN" env $ARGUMENTS`. For doctor, display local command checks and missing profile fields. --remote performs explicit read-only SSH checks. With doctor --remote --run <id>, append an env-doctor event to that run. For refresh, show the generated command unless --yes is present; only execute remote editable venv refresh with explicit --yes. With refresh --yes --run <id>, append an env-refresh event to that run.
 </process>

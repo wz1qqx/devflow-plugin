@@ -1,223 +1,170 @@
 # devteam
 
-`devteam` is a prompt-first multi-agent delivery framework for feature pipelines.
-It combines Markdown-defined orchestration with a Node.js CLI state kernel, so each
-stage can be automated while still preserving strict execution boundaries.
+`devteam` is a lightweight workspace control layer for multi-repo development.
+It helps an agent or human session understand the current workspace, choose a
+track, sync local worktree changes to a remote development host, record remote
+venv validation, plan image builds, and capture pre-production deployment
+evidence.
 
----
+The current architecture is centered on `.devteam/config.yaml`, not on the
+older `workspace.yaml + .dev/features/<feature>` pipeline. Legacy feature
+pipeline code is still present for migration and historical reference, but it is
+not the daily agent-facing workflow.
 
-## Release Snapshot (2026-04-17)
+## Daily Model
 
-- First-class `ship.strategy`: `k8s` and `bare_metal`
-- Strategy-aware build behavior via top-level `build.mode` (legacy `ship.metal.build_mode` is mirrored from it) and `--build-mode`
-- Frozen execution identity with `RUN.json`
-- Slot conflict gate, dirty-worktree gate, and write-scope path gate
-- Structured stage handoff contract (`STAGE_RESULT`) for deterministic orchestration
+The normal workflow is:
 
-See full details in `RELEASE_NOTES.md`.
+1. Open a devteam-managed workspace.
+2. Ask for workspace context or the devteam console.
+3. Choose a track for the current session.
+4. Start or continue a run for that track.
+5. Inspect local worktrees and sync code changes to the remote dev host.
+6. Validate in the configured remote venv and record test evidence.
+7. Review image build plans and record completed image evidence.
+8. Review deployment plans and record pre-production verification evidence.
+9. Publish validated branches when the run gate is ready.
 
----
+Tracks are session-scoped. `defaults.workspace_set` in `.devteam/config.yaml` is
+only a default hint; it must not be treated as a global active track when
+multiple sessions may be open.
 
-## Architecture Review (Current State)
+## Core Concepts
 
-### What is working well
+- **Workspace**: a directory containing `.devteam/config.yaml`.
+- **Track**: one development lane, usually a named bundle of worktrees, env
+  profile, sync profile, image profile, and deploy profile.
+- **Run**: an auditable directory under `.devteam/runs/<run-id>/` containing
+  session metadata, evidence events, and a generated README.
+- **Presence**: lightweight soft-lock hints under `.devteam/presence/` for
+  concurrent sessions. Presence never blocks work by itself.
+- **Evidence**: recorded facts such as sync, env-doctor, env-refresh, test,
+  image-build, deploy, deploy-verify, and publish.
+- **Skill**: reusable Codex skill folders managed separately from wiki/recipe
+  knowledge.
 
-- **Layered boundaries are clear**: CLI entry, config normalization, run/pipeline/task state, and agent orchestration are separated by module.
-- **Runtime safety is explicit**: run identity freeze, slot conflict detection, and path scope checks enforce deterministic execution.
-- **Prompt orchestration is machine-guarded**: stage outcomes use the `STAGE_RESULT` contract plus CLI-side parser/decision/acceptance helpers.
-- **Strategy extension path is real**: ship strategy branching (`k8s` vs `bare_metal`) exists in config, orchestrator, builder, shipper, and verifier.
+## Agent Entry Points
 
-### Main risk to keep watching
-
-- **Prompt and docs drift risk**: behavior spans Markdown prompts and CLI code. Any schema or invariant change must update both together.
-
----
-
-## High-Level Architecture
-
-```text
-commands/devteam/*.md + skills/*.md + agents/*.md
-                 |
-                 v
-          lib/devteam.cjs (CLI router)
-                 |
-     +-----------+--------------------+
-     |                                |
-     v                                v
-lib/config.cjs                 lib/init.cjs
-(schema/load/normalize)        (context assembly)
-     |                                |
-     +----------+---------------------+
-                v
-        Runtime state kernel
-  (run-state / pipeline-state / task-state /
-   session / state / stage-result / hooks)
-                |
-                v
-      Team orchestrator + subagents
-```
-
----
-
-## Core Runtime Artifacts
-
-All workflow state is feature-scoped under `.dev/features/<feature>/`:
-
-- `RUN.json`: frozen run identity and repo snapshot (start SHA/branch/worktree/dirty policy/stages)
-- `tasks.json`: machine-authoritative task state for planner/coder/pause/resume
-- `STATE.md`: stage progress, pipeline markers, and operational checkpoint fields
-- `HANDOFF.json`: pause/resume transfer payload
-- `context.md`: decisions and blockers
-- `build-manifest.md`: permanent build chain record
-
-Workspace-scoped:
-
-- `.dev/build-index.json`: build reuse index for fast no-op reuse hits
-
----
-
-## Pipeline Model
-
-Default stage order:
-
-`spec -> plan -> code -> review -> build -> ship -> verify`
-
-Control loop behavior:
-
-- `review FAIL` can trigger review-fix loop (`coder <-> reviewer`)
-- `verify FAIL` can trigger optimization loop (`vllm-opter -> planner -> code -> review -> build -> ship -> verify`)
-
-Stage communication contract:
-
-- Every stage ends with `## STAGE_RESULT` + fenced JSON
-- CLI helpers:
-  - `stage-result parse`
-  - `stage-result decide`
-  - `stage-result accept`
-  - `orchestration resolve-stage`
-
-Reference: `skills/references/stage-result-contract.md`
-
----
-
-## Configuration Model
-
-Split config design:
-
-- Workspace-level: `workspace.yaml`
-- Feature-level: `.dev/features/<name>/config.yaml`
-
-Important rules:
-
-- `schema_version: 2` is required
-- Config loading is fail-fast on invalid type/shape/enum
-- `scope.<repo>.dev_worktree` is removed (hard error); use `dev_slot`
-- `ship.strategy` supports `k8s | bare_metal`
-- `ship.metal.build_mode` supports `skip | sync_only | source_install | docker`
-
-Reference: `skills/references/schema.md`
-
----
-
-## Execution Boundary Guards
-
-- **Dirty worktree gate**: run cannot proceed without explicit user decision
-- **Execution identity gate**: missing/invalid repo identity in `RUN.json` blocks pipeline
-- **Slot conflict gate**: same worktree in another active run blocks unless explicit override or shared slot exemption
-- **Write-scope gate**: `run check-path` validates target paths are inside run-frozen dev worktrees
-- **Stage compatibility gate**: pipeline stages must match the run snapshot
-
----
-
-## Build and Ship Strategy Matrix
-
-### `k8s` strategy
-
-- Build normally in Docker mode
-- Ship via `kubectl` flow (delete/apply or apply, ready checks, health checks)
-- Verify with cluster log checks and benchmark/smoke workflow
-
-### `bare_metal` strategy
-
-- Build mode can be:
-  - `skip`
-  - `sync_only` (default)
-  - `source_install`
-  - `docker`
-- Ship via SSH scripts (`stop -> sync -> start -> health`)
-- Verify with SSH log checks + direct service smoke/benchmark checks
-
----
-
-## Built-In Bare-Metal Bootstrap
-
-Scaffold built-in rapid-test assets:
+For a compact agent-facing workspace context:
 
 ```bash
-node lib/devteam.cjs init bare-metal --feature <name> --host <user@host> --profile <profile>
+node lib/devteam.cjs workspace context --root "$PWD" --for codex --text
 ```
 
-Generated assets:
+For the track picker:
 
-- `.dev/rapid-test/sync.sh`
-- `.dev/rapid-test/start.sh`
-- `.dev/rapid-test/setup.sh`
-- `.dev/rapid-test/<profile>.env`
+```bash
+node lib/devteam.cjs track list --root "$PWD" --active-only --text
+```
 
-Optional config write-back adds default `ship.strategy: bare_metal` and `ship.metal.*` fields to feature config.
+For selected-track context:
 
----
+```bash
+node lib/devteam.cjs track context --root "$PWD" --set "<track>" --text
+```
 
-## CLI Entry Points
+For a one-screen status view:
 
-Core:
+```bash
+node lib/devteam.cjs status --root "$PWD" --set "<track>"
+```
 
-- `node lib/devteam.cjs init <workflow>`
-- `node lib/devteam.cjs config load|get`
-- `node lib/devteam.cjs state get|update`
-- `node lib/devteam.cjs run init|get|reset|check-path`
-- `node lib/devteam.cjs pipeline init|loop|reset|complete`
-- `node lib/devteam.cjs tasks init|get|summary|sync-from-plan|update|reset`
-- `node lib/devteam.cjs hooks run`
-- `node lib/devteam.cjs stage-result parse|decide|accept`
-- `node lib/devteam.cjs orchestration resolve-stage`
+For a session handoff before a context switch:
 
-High-level command metadata is defined in `commands/devteam/_registry.yaml`.
+```bash
+node lib/devteam.cjs session handoff --root "$PWD" --set "<track>" --text
+```
 
----
+## Onboarding Files
 
-## Testing Focus
+Generate project-local agent instructions for any devteam workspace:
 
-The test suite validates:
+```bash
+node lib/devteam.cjs workspace onboard --root "$PWD" --write --text
+```
 
-- config/schema normalization and fail-fast behavior
-- stage-result parsing and decision contract
-- run lifecycle, slot conflicts, and path gate enforcement
-- build reuse index behavior
-- bare-metal strategy and bootstrap behavior
+Check that the onboarding files and skills are ready:
 
-Examples:
+```bash
+node lib/devteam.cjs doctor agent-onboarding --root "$PWD" --text
+```
 
-- `tests/week12-bare-metal-ship-strategy.test.cjs`
-- `tests/week13-bare-metal-bootstrap.test.cjs`
-- `tests/week3-stage-result-contract.test.cjs`
-- `tests/week10-dev-worktree-deprecation.test.cjs`
+Generated files:
 
----
+- `AGENTS.md`
+- `CLAUDE.md`
+- `README.devteam.md`
+
+These files are derived from `templates/onboarding/` and should teach
+Claude/Codex how to work in the workspace without relying on repository-specific
+memory.
+
+## Primary CLI Surface
+
+- `workspace scaffold|onboard|context`
+- `track list|status|context|bind|use`
+- `presence list|touch|clear`
+- `session start|snapshot|record|status|handoff|list|lint|archive-plan|archive|supersede-plan|supersede-stale|close|supersede|reopen`
+- `status`
+- `doctor [agent-onboarding]`
+- `ws status|materialize|publish-plan|publish`
+- `env list|doctor|refresh`
+- `sync plan|apply|status`
+- `remote-loop plan|start|doctor|refresh|sync|record-test|status`
+- `image plan|prepare|record`
+- `deploy plan|record|verify-record`
+- `skill list|status|lint|install`
+- `knowledge list|search|lint|capture`
+
+Command metadata lives in `commands/devteam/_registry.yaml`. Generated command
+docs live in `commands/devteam/*.md`.
 
 ## Repository Map
 
-- `lib/`: CLI and state kernel implementation
-- `skills/`: orchestrator and workflow prompt logic
-- `agents/`: role-specific agent contracts
-- `commands/devteam/`: command registry and generated command docs
-- `templates/`: built-in scaffold files (including bare-metal rapid-test templates)
-- `tests/`: regression and behavior tests
+- `lib/devteam.cjs`: CLI router.
+- `lib/workspace-scaffold.cjs`: `.devteam` workspace skeleton creation.
+- `lib/workspace-onboarding.cjs`: generated agent onboarding and dynamic context.
+- `lib/track-profile.cjs`: track listing, context, aliases, and session binding.
+- `lib/lite-session.cjs`: run sessions, evidence, gates, lifecycle cleanup, and handoff.
+- `lib/presence.cjs`: concurrent session presence hints.
+- `lib/workspace-inventory.cjs`: local worktree status and publish planning.
+- `lib/env-profile.cjs`: remote/k8s environment profile doctor and refresh.
+- `lib/sync-plan.cjs`: local-to-remote sync planning and execution.
+- `lib/lite-action-plan.cjs`: image/deploy planning and evidence gates.
+- `lib/lite-skill.cjs`: skill discovery, lint, and installation.
+- `lib/lite-knowledge.cjs`: lightweight recipes/wiki/skills knowledge layer.
+- `skills/devteam-console`: one-shot workspace console skill.
+- `skills/devteam-status`: compact workspace/run status skill.
+- `templates/onboarding`: generated `AGENTS.md`, `CLAUDE.md`, and `README.devteam.md`.
+- `tests/week15-lite-workspace.test.cjs`: current broad regression suite for the
+  lightweight workspace model.
 
----
+## Legacy Surface
 
-## Known Deferred Work
+The older feature pipeline used:
 
-- Automated A/B comparison workflow
-- Multi-node bare-metal orchestration
-- Additional ship strategies beyond `k8s` and `bare_metal`
+- `workspace.yaml`
+- `.dev/features/<feature>/`
+- `team`, `feature`, `pause`, `resume`, `pipeline`, `run`, `tasks`, `hooks`,
+  `stage-result`, and `build record`
+- role prompts under `agents/`
+- workflow skills such as `orchestrator.md`, `pause.md`, and `resume.md`
+
+That code is intentionally no longer exposed through the generated command
+registry. It can be removed once migration compatibility is no longer needed.
+
+## Validation
+
+Useful checks while changing devteam:
+
+```bash
+node tests/week15-lite-workspace.test.cjs
+node tests/week4-command-generation.test.cjs
+node tests/week4-release-hygiene.test.cjs
+node lib/devteam.cjs skill lint --root <workspace-root> --text
+node lib/devteam.cjs doctor agent-onboarding --root <workspace-root> --text
+git diff --check
+```
+
+For application workspace changes, run the smallest meaningful validation for
+the selected track first, then record the result as run evidence.

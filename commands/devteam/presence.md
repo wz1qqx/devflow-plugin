@@ -10,8 +10,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Record and inspect lightweight active-session presence under `.devteam/presence`
-without blocking work.
+Record and inspect lightweight active-session presence under .devteam/presence without blocking work.
 </objective>
 
 <context>
@@ -19,32 +18,15 @@ $ARGUMENTS
 </context>
 
 <process>
-**Step 1**: Discover CLI tool:
+**Step 1**: Discover the devteam CLI:
 ```bash
 DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
 [ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 [ -n "$DEVTEAM_BIN" ] || { echo "ERROR: devteam.cjs not found" >&2; exit 1; }
 ```
 
+If no `--root` is provided, use the current workspace or nearest parent containing `.devteam/config.yaml`. Do not select a global active track; ask the user to choose a track or pass `--set <track>` when the command needs one.
+
 **Step 2**: Execute:
-Run `node "$DEVTEAM_BIN" presence $ARGUMENTS`.
-
-Subcommands:
-- `touch`: write or refresh `.devteam/presence/<session-id>.json` for the
-  selected track. Use `--set <track>`, optional `--run <id>`, optional
-  `--purpose <text>`, and optional `--session-id <id>`.
-  If `--session-id` is omitted, devteam derives a stable id from
-  `DEVTEAM_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_SESSION_ID`,
-  `CLAUDE_SESSION_ID`, or the terminal session before falling back to the
-  parent process id. This keeps repeated console opens in the same conversation
-  from creating duplicate soft-lock entries.
-- `list`: show active presence entries grouped by track. Pass `--all` to include
-  expired entries, `--ttl-seconds <n>` to override the default 45 minute TTL,
-  and `--text` for compact output.
-- `clear`: dry-run by default. Remove selected entries only with `--yes`; combine
-  with `--expired`, `--set <track>`, or `--session-id <id>`.
-
-Presence is a soft-lock hint only. It never blocks sync, record, build, publish,
-or deploy. Use it to notice that another Codex session is already working on the
-same track.
+Run `node "$DEVTEAM_BIN" presence $ARGUMENTS`. touch writes/refreshes .devteam/presence/<session-id>.json for the selected track with optional run and purpose. list shows active entries grouped by track; pass --all to include expired entries and --ttl-seconds to override the default 45 minute TTL. clear is dry-run by default and removes selected or expired entries only with --yes. Presence is a soft-lock hint only; it never blocks sync, record, build, publish, or deploy.
 </process>

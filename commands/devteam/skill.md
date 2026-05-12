@@ -18,25 +18,15 @@ $ARGUMENTS
 </context>
 
 <process>
-**Step 1**: Discover CLI tool and load config:
+**Step 1**: Discover the devteam CLI:
 ```bash
 DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
 [ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)
 [ -n "$DEVTEAM_BIN" ] || { echo "ERROR: devteam.cjs not found" >&2; exit 1; }
-INIT=$(node "$DEVTEAM_BIN" init status)
 ```
 
+If no `--root` is provided, use the current workspace or nearest parent containing `.devteam/config.yaml`. Do not select a global active track; ask the user to choose a track or pass `--set <track>` when the command needs one.
+
 **Step 2**: Execute:
-Run `node "$DEVTEAM_BIN" skill $ARGUMENTS`.
-
-`list` and `status` show repo skills plus workspace `.devteam/skills` folders,
-their install target, and whether installed copies are `missing`, `current`,
-`drift`, or `invalid_source`.
-
-`lint` validates `SKILL.md` frontmatter, folder/name alignment, and duplicate
-sources.
-
-`install` is dry-run by default. Only pass `--yes` when the user explicitly asks
-to copy skill folders into the target skills directory. The default target is
-`~/.agents/skills`; use `--target <path>` to override.
+Run `node "$DEVTEAM_BIN" skill $ARGUMENTS`. list/status shows repo skills plus workspace .devteam/skills folders, their install target, and whether installed copies are missing/current/drift/invalid. lint validates SKILL.md frontmatter, folder/name alignment, and duplicate sources. install is dry-run by default; only use --yes when the user explicitly asks to copy skill folders into the target skills directory. Default target is ~/.agents/skills; use --target to override.
 </process>

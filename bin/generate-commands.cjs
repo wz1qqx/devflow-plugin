@@ -41,7 +41,6 @@ function resolveSkillType(cmd) {
 }
 
 function generateCommandMd(name, cmd) {
-  const initAs = cmd['init-as'] || name;
   const contextPrefix = cmd['context-prefix'] || '';
   const argHint = cmd['argument-hint'] || '';
   const tools = (cmd['allowed-tools'] || ['Read', 'Bash', 'Glob', 'Grep'])
@@ -64,17 +63,18 @@ function generateCommandMd(name, cmd) {
     ? `@../../${skillPath}`
     : (cmd.references ? cmd.references[0] : '');
 
-  // Build process steps
+  // Build process steps. The generated command docs are intentionally thin:
+  // they should route agents to the lightweight .devteam CLI without reviving
+  // the older feature-pipeline bootstrap flow.
   const processLines = [];
-  processLines.push('**Step 1**: Discover CLI tool and load config:');
+  processLines.push('**Step 1**: Discover the devteam CLI:');
   processLines.push('```bash');
   processLines.push('DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"');
   processLines.push('[ -f "$DEVTEAM_BIN" ] || DEVTEAM_BIN=$(ls ~/.claude/plugins/cache/devteam/devteam/*/lib/devteam.cjs 2>/dev/null | head -1)');
   processLines.push('[ -n "$DEVTEAM_BIN" ] || { echo "ERROR: devteam.cjs not found" >&2; exit 1; }');
-  processLines.push(`INIT=$(node "$DEVTEAM_BIN" init ${initAs})`);
   processLines.push('```');
   processLines.push('');
-  processLines.push('If `$INIT` contains `"feature": null` and `"available_features"`, prompt the user to select a feature with AskUserQuestion, then re-run: `INIT=$(node "$DEVTEAM_BIN" init ' + initAs + ' --feature $SELECTED)`');
+  processLines.push('If no `--root` is provided, use the current workspace or nearest parent containing `.devteam/config.yaml`. Do not select a global active track; ask the user to choose a track or pass `--set <track>` when the command needs one.');
   processLines.push('');
 
   if (skillPath) {
