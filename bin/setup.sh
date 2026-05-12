@@ -6,7 +6,7 @@
 #   claude plugin install devteam@devteam
 #
 # This script is ONLY for local development:
-#   - Verifies prerequisites (Node.js, python3)
+#   - Verifies prerequisites for the CLI and bundled helper skills
 #   - Tests CLI tools are callable
 #   - Does NOT create symlinks (marketplace handles discovery)
 
@@ -42,9 +42,9 @@ else
 fi
 
 if command -v python3 &> /dev/null; then
-  echo "[OK] python3 found"
+  echo "[OK] python3 found (needed for bundled console/status helper skills)"
 else
-  echo "[WARN] python3 not found — required for YAML parsing"
+  echo "[WARN] python3 not found — bundled console/status helper skills will not run"
 fi
 
 # --- 3. Verify tool is callable ---

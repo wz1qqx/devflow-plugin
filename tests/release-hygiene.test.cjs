@@ -71,6 +71,8 @@ function testSetupUsesDevteamPathsOnly() {
   assert.doesNotMatch(setup, /cache\/devflow\//);
   assert.doesNotMatch(setup, /\.claude\/my-dev/);
   assert.doesNotMatch(setup, /\.claude\/commands\/devflow/);
+  assert.doesNotMatch(setup, /python3.*YAML parsing/);
+  assert.doesNotMatch(setup, /YAML parsing.*python3/);
 }
 
 function main() {
