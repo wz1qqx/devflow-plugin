@@ -5,9 +5,9 @@ description: "Workspace control layer for devteam-managed multi-track developmen
 
 # devteam
 
-Use the lightweight `.devteam` workflow by default. Do not route users into the
-older feature-pipeline commands unless they explicitly ask for migration or
-historical compatibility.
+Use the lightweight `.devteam` workflow by default. The older feature-pipeline
+runtime is not available in the current CLI; historical behavior should only be
+recovered from git history when explicitly needed.
 
 ## Primary Entry
 
@@ -17,6 +17,7 @@ skills:
 
 - `devteam-console`: one-screen daily workspace console.
 - `devteam-status`: compact workspace/run status summary.
+- `vllm-opt`: independent vLLM benchmark/profiler/kernel optimization analysis.
 
 If those skills are unavailable, run the CLI directly:
 
@@ -45,6 +46,7 @@ Route `/devteam <action>` to the matching lightweight command:
 | `deploy` | `deploy plan|record|verify-record` | k8s pre-production deploy evidence |
 | `skill` | `skill list|status|lint|install` | Devteam Codex skill management |
 | `knowledge` | `knowledge list|search|lint|capture` | Recipes/wiki/skills knowledge layer |
+| `vllm-opt` | `vllm-opt` | vLLM performance regression profiling and optimization guidance |
 
 ## Track Discipline
 

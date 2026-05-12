@@ -2,9 +2,9 @@
 # Source of truth for Claude/Codex command definitions.
 # Run `node bin/generate-commands.cjs` to regenerate .md files.
 #
-# This registry intentionally exposes only the lightweight .devteam workspace
-# workflow. Older feature-pipeline commands still exist in the CLI for now, but
-# are not part of the daily agent-facing surface.
+# This registry exposes the lightweight .devteam workspace workflow and
+# independent reusable skills. The older feature-pipeline runtime is not part of
+# the current command surface.
 
 _skip: []
 
@@ -106,3 +106,10 @@ commands:
     objective: Manage the lightweight .devteam knowledge layer: recipes, wiki notes, reusable skills, and run-to-knowledge capture drafts.
     allowed-tools: [Read, Write, Bash, Glob, Grep]
     inline-process: "Run `node \"$DEVTEAM_BIN\" knowledge $ARGUMENTS`. list and search are read-only and cover .devteam/wiki, .devteam/recipes, and .devteam/skills. lint checks missing knowledge dirs, overlong markdown, wiki index coverage, and dead wikilinks. capture reads a run and creates a draft by default; only write it with --apply, and use --to wiki or --to recipes to choose the target."
+
+  vllm-opt:
+    description: vLLM optimization — benchmark, profile, and diagnose inference regressions
+    argument-hint: "[--root <path>] [--set <track>] [benchmark/profile context]"
+    objective: Use the independent vllm-opt skill to analyze TTFT/TPOT/throughput regressions with benchmark evidence, profiler traces, and kernel/category breakdowns.
+    skill: vllm-opt/SKILL.md
+    allowed-tools: [Read, Bash, Glob, Grep]

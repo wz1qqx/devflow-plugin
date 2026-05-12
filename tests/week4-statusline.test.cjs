@@ -13,120 +13,98 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
-function runStatusline(input) {
+function runStatusline(input, env = {}) {
   return execFileSync('node', [STATUSLINE], {
     input: JSON.stringify(input),
     encoding: 'utf8',
+    env: { ...process.env, ...env },
   });
 }
 
-function createWorkspace({ featureCount = 1, phase = 'code' } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-week4-'));
-  const featureLines = [];
-  for (let i = 0; i < featureCount; i++) {
-    featureLines.push(`    - feat-${String.fromCharCode(97 + i)}`);
-  }
-
-  writeFile(
-    path.join(root, 'workspace.yaml'),
-    [
-      'schema_version: 2',
-      `workspace: ${root}`,
-      'devlog:',
-      '  group: inference-platform',
-      'defaults:',
-      '  active_cluster: dev',
-      '  features:',
-      ...featureLines,
-      'clusters:',
-      '  dev:',
-      '    namespace: dev-ns',
-      'repos: {}',
-    ].filter(Boolean).join('\n') + '\n'
-  );
-
-  for (let i = 0; i < featureCount; i++) {
-    const featureName = `feat-${String.fromCharCode(97 + i)}`;
-    writeFile(
-      path.join(root, '.dev', 'features', featureName, 'config.yaml'),
-      [
-        `description: ${featureName}`,
-        `phase: ${phase}`,
-        'scope: {}',
-      ].join('\n') + '\n'
-    );
-  }
-
+function createWorkspace() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-week4-statusline-'));
+  writeFile(path.join(root, '.devteam', 'config.yaml'), [
+    'version: 2',
+    'name: inference-platform',
+    `workspace: ${root}`,
+    'worktrees:',
+    '  repo_a__feature:',
+    '    repo: repo-a',
+    '    path: repo-a-feature',
+    '    branch: feature',
+    'workspace_sets:',
+    '  feature-a:',
+    '    worktrees: ["repo_a__feature"]',
+    '  feature-b:',
+    '    worktrees: ["repo_a__feature"]',
+    'env_profiles:',
+    '  local:',
+    '    type: local',
+    'defaults:',
+    '  workspace_set: feature-a',
+    '  env: local',
+  ].join('\n') + '\n');
   return root;
 }
 
-function testReadsNestedWorkspaceFields() {
-  const root = createWorkspace({ featureCount: 2, phase: 'review' });
+function testReadsLiteWorkspaceDefaults() {
+  const root = createWorkspace();
   const output = runStatusline({
     cwd: root,
     model: { display_name: 'Claude Test' },
     context_window: { used_percentage: 42 },
   });
 
-  assert.match(output, /^Claude Test \| ctx \[====      \] 42% \| inference-platform$/);
+  assert.match(output, /^Claude Test \| ctx \[====      \] 42% \| inference-platform \| track:feature-a$/);
 }
 
-function testFallsBackToSingleFeatureWithoutActiveFeature() {
-  const root = createWorkspace({ featureCount: 1, phase: 'plan' });
+function testEnvTrackOverridesWorkspaceDefault() {
+  const root = createWorkspace();
   const output = runStatusline({
     workspace: { project_dir: root },
     model: { id: 'claude-opus-4-6' },
     context_window: { used_percentage: 5 },
-  });
+  }, { DEVTEAM_TRACK: 'feature-b' });
 
-  assert.match(output, /^claude-opus-4-6 \| ctx \[=         \] 5% \| inference-platform \| feat-a \| \[plan\]$/);
+  assert.match(output, /^claude-opus-4-6 \| ctx \[=         \] 5% \| inference-platform \| track:feature-b$/);
 }
 
-function testFallsBackToFeatureStateForPhase() {
-  const root = createWorkspace({ featureCount: 1, phase: '' });
-  writeFile(
-    path.join(root, '.dev', 'features', 'feat-a', 'STATE.md'),
-    [
-      '---',
-      'feature_stage: verify',
-      'phase: ship',
-      '---',
-    ].join('\n') + '\n'
-  );
+function testShowsLatestOpenRunForTrack() {
+  const root = createWorkspace();
+  writeFile(path.join(root, '.devteam', 'runs', 'run-old', 'session.json'), JSON.stringify({
+    run_id: 'run-old',
+    workspace_set: 'feature-a',
+    created_at: '2026-05-01T00:00:00.000Z',
+    updated_at: '2026-05-01T00:00:00.000Z',
+    lifecycle: { status: 'open' },
+  }, null, 2));
+  writeFile(path.join(root, '.devteam', 'runs', 'run-new', 'session.json'), JSON.stringify({
+    run_id: 'run-new',
+    workspace_set: 'feature-a',
+    created_at: '2026-05-02T00:00:00.000Z',
+    updated_at: '2026-05-02T00:00:00.000Z',
+    lifecycle: { status: 'open' },
+  }, null, 2));
+  writeFile(path.join(root, '.devteam', 'runs', 'run-closed', 'session.json'), JSON.stringify({
+    run_id: 'run-closed',
+    workspace_set: 'feature-a',
+    created_at: '2026-05-03T00:00:00.000Z',
+    updated_at: '2026-05-03T00:00:00.000Z',
+    lifecycle: { status: 'closed' },
+  }, null, 2));
 
   const output = runStatusline({
     cwd: root,
     model: { display_name: 'Claude Test' },
   });
 
-  assert.match(output, /^Claude Test \| inference-platform \| feat-a \| \[verify\]$/);
-}
-
-function testDoesNotReadGlobalStateFallback() {
-  const root = createWorkspace({ featureCount: 1, phase: '' });
-  writeFile(
-    path.join(root, '.dev', 'STATE.md'),
-    [
-      '---',
-      'feature_stage: ship',
-      'phase: build',
-      '---',
-    ].join('\n') + '\n'
-  );
-
-  const output = runStatusline({
-    cwd: root,
-    model: { display_name: 'Claude Test' },
-  });
-
-  assert.match(output, /^Claude Test \| inference-platform \| feat-a$/);
+  assert.match(output, /^Claude Test \| inference-platform \| track:feature-a \| run:run-new$/);
 }
 
 function main() {
-  testReadsNestedWorkspaceFields();
-  testFallsBackToSingleFeatureWithoutActiveFeature();
-  testFallsBackToFeatureStateForPhase();
-  testDoesNotReadGlobalStateFallback();
+  testReadsLiteWorkspaceDefaults();
+  testEnvTrackOverridesWorkspaceDefault();
+  testShowsLatestOpenRunForTrack();
   console.log('week4-statusline: ok');
 }
 

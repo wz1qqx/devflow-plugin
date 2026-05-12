@@ -1,5 +1,7 @@
 # devteam
 
+[![v2.1.0](https://img.shields.io/badge/version-2.1.0-orange)](https://github.com/wz1qqx/devteam)
+
 `devteam` is a lightweight workspace control layer for multi-repo development.
 It helps an agent or human session understand the current workspace, choose a
 track, sync local worktree changes to a remote development host, record remote
@@ -7,9 +9,9 @@ venv validation, plan image builds, and capture pre-production deployment
 evidence.
 
 The current architecture is centered on `.devteam/config.yaml`, not on the
-older `workspace.yaml + .dev/features/<feature>` pipeline. Legacy feature
-pipeline code is still present for migration and historical reference, but it is
-not the daily agent-facing workflow.
+older `workspace.yaml + .dev/features/<feature>` pipeline. The old runtime has
+been removed from the current CLI surface; reusable capabilities such as
+`vllm-opt` live on as independent skills.
 
 ## Daily Model
 
@@ -139,7 +141,7 @@ docs live in `commands/devteam/*.md`.
 - `tests/week15-lite-workspace.test.cjs`: current broad regression suite for the
   lightweight workspace model.
 
-## Legacy Surface
+## Removed Legacy Surface
 
 The older feature pipeline used:
 
@@ -151,7 +153,9 @@ The older feature pipeline used:
 - workflow skills such as `orchestrator.md`, `pause.md`, and `resume.md`
 
 That code is intentionally no longer exposed through the generated command
-registry. It can be removed once migration compatibility is no longer needed.
+registry or CLI router. Historical behavior should be recovered from git
+history only when explicitly needed; new work should use `.devteam/config.yaml`
+plus independent skills.
 
 ## Validation
 
@@ -168,3 +172,5 @@ git diff --check
 
 For application workspace changes, run the smallest meaningful validation for
 the selected track first, then record the result as run evidence.
+
+# Plugin manifest (devteam v2.1.0)

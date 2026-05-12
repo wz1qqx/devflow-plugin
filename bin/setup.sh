@@ -49,10 +49,10 @@ fi
 
 # --- 3. Verify tool is callable ---
 if [ -f "$CLI_ROOT/devteam.cjs" ]; then
-  if node "$CLI_ROOT/devteam.cjs" features list > /dev/null 2>&1; then
-    echo "[OK] CLI tools working (workspace detected)"
+  if node "$CLI_ROOT/devteam.cjs" workspace context --root "$PWD" --text > /dev/null 2>&1; then
+    echo "[OK] CLI tools working (.devteam workspace detected)"
   else
-    echo "[OK] CLI tools callable (no workspace configured yet — run /devteam init)"
+    echo "[OK] CLI tools callable (no .devteam workspace configured here yet)"
   fi
 else
   echo "[ERROR] devteam.cjs not found at $CLI_ROOT/"
@@ -64,7 +64,7 @@ echo "=== Check complete ==="
 echo ""
 echo "Next steps:"
 echo "  1. cd <your-project-directory>"
-echo "  2. Run /devteam init to initialize workspace (workspace.yaml)"
-echo "  3. Run /devteam init feature <name> to create your first feature"
-echo "  4. Run /devteam team <feature> to start the automated pipeline"
+echo "  2. Run /devteam workspace scaffold to create .devteam/config.yaml"
+echo "  3. Run /devteam workspace onboard --write to create agent onboarding files"
+echo "  4. Run /devteam track list --active-only to choose a track"
 echo "  5. Optional: merge templates/statusline-settings.json into ~/.claude/settings.local.json"

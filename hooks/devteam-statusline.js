@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// devteam StatusLine — displays model, context usage, project/feature/phase
+// devteam StatusLine - displays model, context usage, workspace, track, and latest run.
 
 'use strict';
 
@@ -10,8 +10,7 @@ const yaml = require('../lib/yaml.cjs');
 function findWorkspaceRoot(startDir) {
   let dir = startDir || process.cwd();
   for (let i = 0; i < 20; i++) {
-    const candidate = path.join(dir, 'workspace.yaml');
-    if (fs.existsSync(candidate)) return dir;
+    if (fs.existsSync(path.join(dir, '.devteam', 'config.yaml'))) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -29,25 +28,12 @@ function readYamlFile(filePath) {
   }
 }
 
-function parseStateFrontmatter(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return {};
+function readJsonFile(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!match) return {};
-
-    const result = {};
-    for (const line of match[1].split('\n')) {
-      const colonIdx = line.indexOf(':');
-      if (colonIdx > 0) {
-        const key = line.slice(0, colonIdx).trim();
-        const value = line.slice(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
-        result[key] = value;
-      }
-    }
-    return result;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch (_) {
-    return {};
+    return null;
   }
 }
 
@@ -58,28 +44,47 @@ function contextBar(usedPct) {
   return '[' + '='.repeat(filled) + ' '.repeat(empty) + ']';
 }
 
+function latestRun(root, track) {
+  const runsDir = path.join(root, '.devteam', 'runs');
+  if (!fs.existsSync(runsDir) || !fs.statSync(runsDir).isDirectory()) return null;
+  const runs = fs.readdirSync(runsDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => {
+      const runDir = path.join(runsDir, entry.name);
+      const session = readJsonFile(path.join(runDir, 'session.json'));
+      if (!session) return null;
+      const status = session.lifecycle && session.lifecycle.status
+        ? session.lifecycle.status
+        : 'open';
+      if (status !== 'open') return null;
+      if (track && session.workspace_set && session.workspace_set !== track) return null;
+      return {
+        id: session.run_id || entry.name,
+        track: session.workspace_set || null,
+        updated_at: session.updated_at || session.created_at || '',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  return runs[0] || null;
+}
+
 function resolveWorkspaceState(cwd) {
   const root = findWorkspaceRoot(cwd);
   if (!root) return null;
 
-  const workspaceConfig = readYamlFile(path.join(root, 'workspace.yaml')) || {};
-  const defaults = workspaceConfig.defaults || {};
-  const configuredFeatures = Array.isArray(defaults.features) ? defaults.features : [];
-  const selectedFeature = configuredFeatures.length === 1 ? configuredFeatures[0] : '';
-  const projectName = (workspaceConfig.devlog && workspaceConfig.devlog.group) || path.basename(root);
+  const config = readYamlFile(path.join(root, '.devteam', 'config.yaml')) || {};
+  const defaults = config.defaults || {};
+  const workspaceName = config.name || path.basename(root);
+  const track = process.env.DEVTEAM_TRACK || process.env.DEVTEAM_WORKSPACE_SET || defaults.workspace_set || '';
+  const run = latestRun(root, track);
 
-  let phase = '';
-  if (selectedFeature) {
-    const featureConfig = readYamlFile(path.join(root, '.dev', 'features', selectedFeature, 'config.yaml')) || {};
-    phase = featureConfig.phase || '';
-
-    if (!phase) {
-      const featureState = parseStateFrontmatter(path.join(root, '.dev', 'features', selectedFeature, 'STATE.md'));
-      phase = featureState.feature_stage || featureState.phase || '';
-    }
-  }
-
-  return { root, projectName, selectedFeature, phase };
+  return {
+    root,
+    workspaceName,
+    track,
+    run: run ? run.id : '',
+  };
 }
 
 function renderStatusline(data) {
@@ -95,9 +100,9 @@ function renderStatusline(data) {
 
   const workspaceState = resolveWorkspaceState(cwd);
   if (workspaceState) {
-    parts.push(workspaceState.projectName);
-    if (workspaceState.selectedFeature) parts.push(workspaceState.selectedFeature);
-    if (workspaceState.phase) parts.push(`[${workspaceState.phase}]`);
+    parts.push(workspaceState.workspaceName);
+    if (workspaceState.track) parts.push(`track:${workspaceState.track}`);
+    if (workspaceState.run) parts.push(`run:${workspaceState.run}`);
   }
 
   return parts.length > 0 ? parts.join(' | ') : 'devteam';

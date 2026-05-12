@@ -65,7 +65,7 @@ function generateCommandMd(name, cmd) {
 
   // Build process steps. The generated command docs are intentionally thin:
   // they should route agents to the lightweight .devteam CLI without reviving
-  // the older feature-pipeline bootstrap flow.
+  // the removed feature-pipeline bootstrap flow.
   const processLines = [];
   processLines.push('**Step 1**: Discover the devteam CLI:');
   processLines.push('```bash');

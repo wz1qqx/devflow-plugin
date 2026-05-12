@@ -76,88 +76,72 @@ function testYamlDoubleQuotedEscapesForShellCommands() {
   ]);
 }
 
-function createLegacyWorkspace() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-old-'));
-  fs.mkdirSync(path.join(root, 'repo-a-dev'), { recursive: true });
-  fs.mkdirSync(path.join(root, 'repo-a-base'), { recursive: true });
+function createStandardWorkspace(prefix = 'devteam-lite-new-') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  fs.mkdirSync(path.join(root, 'repo-a-source'), { recursive: true });
   writeFile(path.join(root, 'build.sh'), '#!/usr/bin/env bash\n');
   writeFile(path.join(root, 'scripts', 'deploy.sh'), '#!/usr/bin/env bash\n');
   writeFile(path.join(root, 'Dockerfile.dev'), 'FROM scratch\n');
-  writeFile(path.join(root, '.dev.yaml'), [
-    'defaults:',
-    '  active_project: feat-a',
-    '  active_cluster: staging',
-    'projects:',
-    '  feat-a:',
-    '    current_tag: v1',
-    '    build_history:',
-    '      - tag: v0',
-    '        image: registry.example.com/library/llm-d-cuda:v0',
-    '      - tag: v1',
-    '        image: registry.example.com/library/llm-d-cuda:v1',
-  ].join('\n') + '\n');
 
-  writeFile(path.join(root, 'workspace.yaml'), [
-    'schema_version: 2',
+  writeFile(path.join(root, '.devteam', 'config.yaml'), [
+    'version: 2',
     `workspace: ${root}`,
-    'vault: /tmp/devteam-lite-vault',
-    'build_server:',
-    '  ssh: "ssh -p 2222 builder@example.com"',
-    '  work_dir: /remote/build',
-    '  registry: registry.example.com/library',
-    'clusters:',
-    '  staging:',
-    '    ssh: "ssh root@cluster.example.com"',
-    '    namespace: llm-test',
-    '    safety: normal',
-    'defaults:',
-    '  active_cluster: staging',
-    '  features:',
-    '    - feat-a',
     'repos:',
     '  repo-a:',
-    '    upstream: https://example.com/repo-a.git',
-    '    baselines:',
-    '      main: repo-a-base',
-    '    dev_slots:',
-    '      default:',
-    '        worktree: repo-a-dev',
-    '        baseline_id: main',
-  ].join('\n') + '\n');
-
-  writeFile(path.join(root, '.dev', 'features', 'feat-a', 'config.yaml'), [
-    'description: Feature A',
-    'created: "2026-05-05"',
-    'scope:',
-    '  repo-a:',
+    '    remote: https://example.com/repo-a.git',
+    'worktrees:',
+    '  repo_a__feat_a:',
+    '    repo: repo-a',
+    '    path: repo-a-dev',
+    '    source_path: repo-a-source',
+    '    branch: main',
     '    base_ref: main',
-    '    dev_slot: default',
-    'phase: build',
-    'current_tag: v1',
-    'hooks:',
-    '  pre_build: []',
-    '  post_build: []',
-    '  pre_deploy: []',
-    '  post_deploy: []',
-    '  post_verify: []',
-    '  learned:',
-    '    - name: buildkit-arg-scope',
-    '      trigger: build',
-    '      added: "2026-05-05"',
-    '      rule: "Pass explicit BuildKit args."',
-    'build:',
-    '  commands:',
-    '    default: bash build.sh',
-    '  env:',
-    '    REGISTRY: registry.example.com/library',
-    '    TAG: v1',
-    'deploy:',
-    '  commands:',
-    '    env_check: ./scripts/check.sh',
-    '    deploy: ./scripts/deploy.sh',
-    '  guide: staging-guide',
-    '  gateway_recipe: agentgateway',
-    'build_history: []',
+    '    sync:',
+    '      profile: build-server',
+    '      remote_path: /remote/build/repo-a-dev',
+    'workspace_sets:',
+    '  feat-a:',
+    '    description: Feature A',
+    '    worktrees: ["repo_a__feat_a"]',
+    'env_profiles:',
+    '  build-server:',
+    '    type: remote_dev',
+    '    ssh: "ssh -p 2222 builder@example.com"',
+    '    host: builder@example.com',
+    '    work_dir: /remote/build',
+    '    registry: registry.example.com/library',
+    '  staging:',
+    '    type: k8s',
+    '    ssh: "ssh root@cluster.example.com"',
+    '    host: cluster.example.com',
+    '    namespace: llm-test',
+    'build_profiles:',
+    '  feat-a:',
+    '    workspace_set: feat-a',
+    '    env: build-server',
+    '    command: bash build.sh --build-only',
+    '    image: llm-d-cuda',
+    '    tag: v1',
+    'deploy_profiles:',
+    '  staging:',
+    '    type: k8s',
+    '    env: staging',
+    '    namespace: llm-test',
+    'deploy_flows:',
+    '  feat-a:',
+    '    profile: staging',
+    '    guide: staging-guide',
+    '    gateway_recipe: agentgateway',
+    '    commands:',
+    '      env_check: ./scripts/check.sh',
+    '      deploy: ./scripts/deploy.sh',
+    'defaults:',
+    '  workspace_set: feat-a',
+    '  env: build-server',
+    '  sync: build-server',
+    '  build: feat-a',
+    '  deploy: staging',
+    '  deploy_flow: feat-a',
   ].join('\n') + '\n');
 
   return root;
@@ -169,37 +153,8 @@ function initGitRepo(repoPath) {
   writeFile(path.join(repoPath, 'README.md'), '# repo\n');
 }
 
-function testMigrateCreatesLiteWorkspace() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  const migrated = runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
-
-  assert.strictEqual(migrated.action, 'lite_migrate');
-  assert.ok(fs.existsSync(path.join(newRoot, '.devteam', 'config.yaml')));
-  assert.ok(fs.existsSync(path.join(newRoot, '.devteam', 'knowledge', 'recipes', 'legacy-learnings.md')));
-  assert.strictEqual(migrated.workspace_sets[0], 'feat-a');
-  assert.strictEqual(migrated.worktrees, 1);
-}
-
-function testLiteAssetsPlansAndCopiesSupportingFiles() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-
-  const plan = runCli(newRoot, ['lite', 'assets', '--from', oldRoot, '--to', newRoot]);
-  assert.strictEqual(plan.applied, false);
-  assert.ok(plan.totals.copy_plan >= 3);
-
-  const applied = runCli(newRoot, ['lite', 'assets', '--from', oldRoot, '--to', newRoot, '--apply']);
-  assert.strictEqual(applied.applied, true);
-  assert.ok(fs.existsSync(path.join(newRoot, 'build.sh')));
-  assert.ok(fs.existsSync(path.join(newRoot, 'scripts', 'deploy.sh')));
-  assert.ok(fs.existsSync(path.join(newRoot, 'Dockerfile.dev')));
-}
-
 function testWorkspaceStatusShowsMissingAndSource() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
 
   const status = runCli(newRoot, ['ws', 'status', '--root', newRoot, '--set', 'feat-a']);
   assert.strictEqual(status.workspace_set, 'feat-a');
@@ -2692,9 +2647,7 @@ function testRemoteLoopRecordTestBlocksCrossTrackRun() {
 }
 
 function testMaterializePlansLocalCloneFromSourcePath() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
 
   const plan = runCli(newRoot, ['ws', 'materialize', '--root', newRoot, '--set', 'feat-a']);
   assert.strictEqual(plan.applied, false);
@@ -2704,9 +2657,7 @@ function testMaterializePlansLocalCloneFromSourcePath() {
 }
 
 function testSyncPlanBecomesSyncableWhenWorktreeExists() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const plan = runCli(newRoot, ['sync', 'plan', '--root', newRoot, '--set', 'feat-a', '--profile', 'build-server']);
@@ -2717,9 +2668,7 @@ function testSyncPlanBecomesSyncableWhenWorktreeExists() {
 }
 
 function testSyncApplyDefaultsToDryRunPlan() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const result = runCli(newRoot, ['sync', 'apply', '--root', newRoot, '--set', 'feat-a', '--profile', 'build-server']);
@@ -2730,10 +2679,7 @@ function testSyncApplyDefaultsToDryRunPlan() {
 }
 
 function testSyncPlanCanIncludeWorkspaceAssets() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
-  runCli(newRoot, ['lite', 'assets', '--from', oldRoot, '--to', newRoot, '--apply']);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const plan = runCli(newRoot, [
@@ -2824,53 +2770,8 @@ function testSyncPatchModesSeparateBranchPatchFromDirtyOnly() {
   assert.deepStrictEqual(dirtyOnly.entries[0].patch_files, ['dirty.txt']);
 }
 
-function testLiteCompatGeneratesLegacyDevYamlProjection() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
-
-  const plan = runCli(newRoot, [
-    'lite', 'compat',
-    '--root', newRoot,
-    '--profile', 'feat-a',
-    '--legacy-dev-yaml', path.join(oldRoot, '.dev.yaml'),
-  ]);
-  assert.strictEqual(plan.applied, false);
-  assert.strictEqual(plan.active_project, 'feat-a');
-  assert.strictEqual(fs.existsSync(path.join(newRoot, '.dev.yaml')), false);
-
-  const applied = runCli(newRoot, [
-    'lite', 'compat',
-    '--root', newRoot,
-    '--profile', 'feat-a',
-    '--legacy-dev-yaml', path.join(oldRoot, '.dev.yaml'),
-    '--apply',
-  ]);
-  assert.strictEqual(applied.applied, true);
-  const devYaml = fs.readFileSync(path.join(newRoot, '.dev.yaml'), 'utf8');
-  assert.match(devYaml, /active_project: "feat-a"/);
-  assert.match(devYaml, /build_server:/);
-  assert.match(devYaml, /repo-a:/);
-  assert.match(devYaml, /dev_worktree: "repo-a-dev"/);
-  assert.match(devYaml, /image_name: "llm-d-cuda"/);
-  assert.match(devYaml, /tag: "v0"/);
-  assert.match(devYaml, /tag: "v1"/);
-
-  initGitRepo(path.join(newRoot, 'repo-a-dev'));
-  const syncPlan = runCli(newRoot, [
-    'sync', 'plan',
-    '--root', newRoot,
-    '--set', 'feat-a',
-    '--profile', 'build-server',
-    '--include-assets',
-  ]);
-  assert.ok(syncPlan.entries.some(entry => entry.id === 'asset__.dev.yaml'));
-}
-
 function testDoctorAggregatesLiteChecks() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
 
   const doctor = runCli(newRoot, ['doctor', '--root', newRoot, '--set', 'feat-a']);
   assert.strictEqual(doctor.workspace, newRoot);
@@ -2885,10 +2786,8 @@ function testDoctorAggregatesLiteChecks() {
   assert.match(doctorWithHistory.next_action, /session archive-plan/);
 }
 
-function testImageAndDeployPlansUseMigratedProfiles() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+function testImageAndDeployPlansUseConfiguredProfiles() {
+  const newRoot = createStandardWorkspace();
 
   const image = runCli(newRoot, ['image', 'plan', '--root', newRoot, '--profile', 'feat-a']);
   assert.strictEqual(image.profile, 'feat-a');
@@ -3066,9 +2965,7 @@ function testImagePrepareMaterializesTagPatchContext() {
 }
 
 function testImageAndDeployPlansUseRunGatesAndRecords() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.email', 'test@example.com']);
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.name', 'Test User']);
@@ -3208,9 +3105,7 @@ function testImageAndDeployPlansUseRunGatesAndRecords() {
 }
 
 function testImageRecordCanEnableOptionalBuildProfileOnRun() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-optional-image-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace('devteam-lite-optional-image-');
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.email', 'test@example.com']);
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.name', 'Test User']);
@@ -3267,9 +3162,7 @@ function testImageRecordCanEnableOptionalBuildProfileOnRun() {
 }
 
 function testDeployRecordCanEnableOptionalDeployProfileOnRun() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-optional-deploy-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace('devteam-lite-optional-deploy-');
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.email', 'test@example.com']);
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.name', 'Test User']);
@@ -3327,9 +3220,7 @@ function testDeployRecordCanEnableOptionalDeployProfileOnRun() {
 }
 
 function testSessionSnapshotWritesRunArtifact() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const session = runCli(newRoot, [
@@ -3352,9 +3243,7 @@ function testSessionSnapshotWritesRunArtifact() {
 }
 
 function testSessionStartWritesReadmeAndCanSkipBuildDeploy() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const session = runCli(newRoot, [
@@ -3392,9 +3281,7 @@ function testSessionStartWritesReadmeAndCanSkipBuildDeploy() {
 }
 
 function testSessionRecordAppendsEventAndUpdatesReadme() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const session = runCli(newRoot, [
@@ -3436,9 +3323,7 @@ function testSessionRecordAppendsEventAndUpdatesReadme() {
 }
 
 function testSessionRecordCanParsePytestLog() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const session = runCli(newRoot, [
@@ -3475,9 +3360,7 @@ function testSessionRecordCanParsePytestLog() {
 }
 
 function testSessionRecordCanParseFailedPytestLog() {
-  const oldRoot = createLegacyWorkspace();
-  const newRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-new-'));
-  runCli(newRoot, ['lite', 'migrate', '--from', oldRoot, '--to', newRoot]);
+  const newRoot = createStandardWorkspace();
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
 
   const session = runCli(newRoot, [
@@ -4166,8 +4049,6 @@ function testEnvRefreshDefaultsToDryRunPlan() {
 
 function main() {
   testYamlDoubleQuotedEscapesForShellCommands();
-  testMigrateCreatesLiteWorkspace();
-  testLiteAssetsPlansAndCopiesSupportingFiles();
   testWorkspaceStatusShowsMissingAndSource();
   testWorkspaceStatusSurfacesPublishPlan();
   testWorkspaceStatusIncludesDirtyFileSummary();
@@ -4199,9 +4080,8 @@ function main() {
   testSyncApplyDefaultsToDryRunPlan();
   testSyncPlanCanIncludeWorkspaceAssets();
   testSyncPatchModesSeparateBranchPatchFromDirtyOnly();
-  testLiteCompatGeneratesLegacyDevYamlProjection();
   testDoctorAggregatesLiteChecks();
-  testImageAndDeployPlansUseMigratedProfiles();
+  testImageAndDeployPlansUseConfiguredProfiles();
   testImagePlanSupportsTagPatchBuildContract();
   testImagePlanDetectsUnsafeTagPatchFiles();
   testImagePrepareMaterializesTagPatchContext();
