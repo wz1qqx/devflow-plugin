@@ -47,7 +47,7 @@ function createWorkspace() {
   return root;
 }
 
-function testReadsLiteWorkspaceDefaults() {
+function testReadsWorkspaceDefaults() {
   const root = createWorkspace();
   const output = runStatusline({
     cwd: root,
@@ -102,7 +102,7 @@ function testShowsLatestOpenRunForTrack() {
 }
 
 function main() {
-  testReadsLiteWorkspaceDefaults();
+  testReadsWorkspaceDefaults();
   testEnvTrackOverridesWorkspaceDefault();
   testShowsLatestOpenRunForTrack();
   console.log('week4-statusline: ok');

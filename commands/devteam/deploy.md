@@ -9,7 +9,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Show the k8s deployment profile and migrated deploy commands for pre-production validation, then record deployment and post-deploy verification evidence separately.
+Show the k8s deployment profile and configured deploy commands for pre-production validation, then record deployment and post-deploy verification evidence separately.
 </objective>
 
 <context>
@@ -27,5 +27,5 @@ DEVTEAM_BIN="${HOME}/.claude/plugins/marketplaces/devteam/lib/devteam.cjs"
 If no `--root` is provided, use the current workspace or nearest parent containing `.devteam/config.yaml`. Do not select a global active track; ask the user to choose a track or pass `--set <track>` when the command needs one.
 
 **Step 2**: Execute:
-Run `node "$DEVTEAM_BIN" deploy plan $ARGUMENTS`. Display namespace, env, guide, gateway recipe, migrated deploy commands, run_gate, verify_gate, and next_action. Do not mutate the cluster unless the user explicitly asks. Use deploy record after deploying the image, then deploy verify-record after health checks, smoke traffic, or benchmark validation pass.
+Run `node "$DEVTEAM_BIN" deploy plan $ARGUMENTS`. Display namespace, env, guide, gateway recipe, configured deploy commands, run_gate, verify_gate, and next_action. Do not mutate the cluster unless the user explicitly asks. Use deploy record after deploying the image, then deploy verify-record after health checks, smoke traffic, or benchmark validation pass.
 </process>

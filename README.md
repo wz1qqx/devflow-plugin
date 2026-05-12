@@ -127,18 +127,18 @@ docs live in `commands/devteam/*.md`.
 - `lib/workspace-scaffold.cjs`: `.devteam` workspace skeleton creation.
 - `lib/workspace-onboarding.cjs`: generated agent onboarding and dynamic context.
 - `lib/track-profile.cjs`: track listing, context, aliases, and session binding.
-- `lib/lite-session.cjs`: run sessions, evidence, gates, lifecycle cleanup, and handoff.
+- `lib/session-manager.cjs`: run sessions, evidence, gates, lifecycle cleanup, and handoff.
 - `lib/presence.cjs`: concurrent session presence hints.
 - `lib/workspace-inventory.cjs`: local worktree status and publish planning.
 - `lib/env-profile.cjs`: remote/k8s environment profile doctor and refresh.
 - `lib/sync-plan.cjs`: local-to-remote sync planning and execution.
-- `lib/lite-action-plan.cjs`: image/deploy planning and evidence gates.
-- `lib/lite-skill.cjs`: skill discovery, lint, and installation.
-- `lib/lite-knowledge.cjs`: lightweight recipes/wiki/skills knowledge layer.
+- `lib/action-plan.cjs`: image/deploy planning and evidence gates.
+- `lib/skill-manager.cjs`: skill discovery, lint, and installation.
+- `lib/knowledge-manager.cjs`: lightweight recipes/wiki/skills knowledge layer.
 - `skills/devteam-console`: one-shot workspace console skill.
 - `skills/devteam-status`: compact workspace/run status skill.
 - `templates/onboarding`: generated `AGENTS.md`, `CLAUDE.md`, and `README.devteam.md`.
-- `tests/week15-lite-workspace.test.cjs`: current broad regression suite for the
+- `tests/week15-workspace.test.cjs`: current broad regression suite for the
   lightweight workspace model.
 
 ## Removed Legacy Surface
@@ -162,7 +162,7 @@ plus independent skills.
 Useful checks while changing devteam:
 
 ```bash
-node tests/week15-lite-workspace.test.cjs
+node tests/week15-workspace.test.cjs
 node tests/week4-command-generation.test.cjs
 node tests/week4-release-hygiene.test.cjs
 node lib/devteam.cjs skill lint --root <workspace-root> --text

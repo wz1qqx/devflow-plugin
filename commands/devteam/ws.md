@@ -10,7 +10,7 @@ allowed-tools:
   - Grep
 ---
 <objective>
-Inspect local worktrees from .devteam/config.yaml without loading the legacy feature pipeline.
+Inspect local worktrees from .devteam/config.yaml.
 </objective>
 
 <context>

@@ -76,7 +76,7 @@ function testYamlDoubleQuotedEscapesForShellCommands() {
   ]);
 }
 
-function createStandardWorkspace(prefix = 'devteam-lite-new-') {
+function createStandardWorkspace(prefix = 'devteam-workspace-new-') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fs.mkdirSync(path.join(root, 'repo-a-source'), { recursive: true });
   writeFile(path.join(root, 'build.sh'), '#!/usr/bin/env bash\n');
@@ -168,7 +168,7 @@ function testWorkspaceStatusShowsMissingAndSource() {
 }
 
 function testWorkspaceStatusSurfacesPublishPlan() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-publish-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-publish-'));
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
     `workspace: ${root}`,
@@ -201,7 +201,7 @@ function testWorkspaceStatusSurfacesPublishPlan() {
 }
 
 function testWorkspaceStatusIncludesDirtyFileSummary() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-dirty-summary-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-dirty-summary-'));
   const repo = path.join(root, 'repo-a-feature');
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
@@ -285,7 +285,7 @@ function testWorkspaceStatusIncludesDirtyFileSummary() {
   assert.match(wsTextLimited, /\+1 more dirty files/);
   assert.doesNotMatch(wsTextLimited, /untracked\.txt/);
 
-  const root2 = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-unstaged-first-'));
+  const root2 = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-unstaged-first-'));
   const repo2 = path.join(root2, 'repo-b-feature');
   writeFile(path.join(root2, '.devteam', 'config.yaml'), [
     'version: 2',
@@ -319,7 +319,7 @@ function testWorkspaceStatusIncludesDirtyFileSummary() {
 }
 
 function testWorkspacePublishPlanSurfacesPushCommands() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-publish-plan-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-publish-plan-'));
   const repo = path.join(root, 'repo-a-feature');
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
@@ -371,7 +371,7 @@ function testWorkspacePublishPlanSurfacesPushCommands() {
 }
 
 function testWorkspacePublishRequiresGateAndRecordsPush() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-publish-apply-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-publish-apply-'));
   const repo = path.join(root, 'repo-a-feature');
   const remote = path.join(root, 'repo-a-remote.git');
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
@@ -490,7 +490,7 @@ function testWorkspacePublishRequiresGateAndRecordsPush() {
 }
 
 function testWorkspacePublishDetectsAlreadyPublishedRemoteAhead() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-publish-remote-ahead-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-publish-remote-ahead-'));
   const repo = path.join(root, 'repo-a-feature');
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
@@ -545,7 +545,7 @@ function testWorkspacePublishDetectsAlreadyPublishedRemoteAhead() {
 }
 
 function testSessionStatusPublishNextActionForAlreadyPublishedBranch() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-session-published-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-session-published-'));
   const repo = path.join(root, 'repo-a-feature');
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
@@ -626,7 +626,7 @@ function testSessionStatusPublishNextActionForAlreadyPublishedBranch() {
 }
 
 function testSessionStartSuggestsPublishPlanWhenNeeded() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-session-publish-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-session-publish-'));
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
     `workspace: ${root}`,
@@ -668,7 +668,7 @@ function testSessionStartSuggestsPublishPlanWhenNeeded() {
 }
 
 function testSessionStatusSummarizesEvidenceAndPublishPlan() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-session-status-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-session-status-'));
   const repo = path.join(root, 'repo-a-feature');
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
@@ -775,7 +775,7 @@ function testSessionStatusSummarizesEvidenceAndPublishPlan() {
 }
 
 function testSessionStatusMarksEvidenceStaleWhenWorktreeHeadChanges() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-lite-stale-head-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-workspace-stale-head-'));
   const repo = path.join(root, 'repo-a-feature');
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
@@ -2770,7 +2770,7 @@ function testSyncPatchModesSeparateBranchPatchFromDirtyOnly() {
   assert.deepStrictEqual(dirtyOnly.entries[0].patch_files, ['dirty.txt']);
 }
 
-function testDoctorAggregatesLiteChecks() {
+function testDoctorAggregatesWorkspaceChecks() {
   const newRoot = createStandardWorkspace();
 
   const doctor = runCli(newRoot, ['doctor', '--root', newRoot, '--set', 'feat-a']);
@@ -3105,7 +3105,7 @@ function testImageAndDeployPlansUseRunGatesAndRecords() {
 }
 
 function testImageRecordCanEnableOptionalBuildProfileOnRun() {
-  const newRoot = createStandardWorkspace('devteam-lite-optional-image-');
+  const newRoot = createStandardWorkspace('devteam-workspace-optional-image-');
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.email', 'test@example.com']);
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.name', 'Test User']);
@@ -3162,7 +3162,7 @@ function testImageRecordCanEnableOptionalBuildProfileOnRun() {
 }
 
 function testDeployRecordCanEnableOptionalDeployProfileOnRun() {
-  const newRoot = createStandardWorkspace('devteam-lite-optional-deploy-');
+  const newRoot = createStandardWorkspace('devteam-workspace-optional-deploy-');
   initGitRepo(path.join(newRoot, 'repo-a-dev'));
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.email', 'test@example.com']);
   execFileSync('git', ['-C', path.join(newRoot, 'repo-a-dev'), 'config', 'user.name', 'Test User']);
@@ -4080,7 +4080,7 @@ function main() {
   testSyncApplyDefaultsToDryRunPlan();
   testSyncPlanCanIncludeWorkspaceAssets();
   testSyncPatchModesSeparateBranchPatchFromDirtyOnly();
-  testDoctorAggregatesLiteChecks();
+  testDoctorAggregatesWorkspaceChecks();
   testImageAndDeployPlansUseConfiguredProfiles();
   testImagePlanSupportsTagPatchBuildContract();
   testImagePlanDetectsUnsafeTagPatchFiles();
@@ -4105,7 +4105,7 @@ function main() {
   testRemoteDevProfileWithoutVllmSkipsImportCheck();
   testVllmRefreshCommandUsesEditablePrecompiledInstall();
   testEnvRefreshDefaultsToDryRunPlan();
-  console.log('week15-lite-workspace: ok');
+  console.log('week15-workspace: ok');
 }
 
 main();
