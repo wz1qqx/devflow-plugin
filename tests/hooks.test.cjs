@@ -18,15 +18,15 @@ function exists(relativePath) {
 function testHookRegistryUsesDevteamEntrypoints() {
   const hooks = readJson('hooks/hooks.json').hooks;
   const postToolUseCommand = hooks.PostToolUse[0].hooks[0].command;
-  const stopCommand = hooks.Stop[0].hooks[0].command;
 
   assert.match(postToolUseCommand, /hooks\/devteam-context-monitor\.js/);
-  assert.match(stopCommand, /hooks\/devteam-persistent\.js/);
+  assert.strictEqual(Object.hasOwn(hooks, 'Stop'), false);
 }
 
 function testRemovedWrappersStayRemoved() {
   assert.strictEqual(exists('hooks/my-dev-context-monitor.js'), false, 'hooks/my-dev-context-monitor.js should be removed');
   assert.strictEqual(exists('hooks/devflow-persistent.js'), false, 'hooks/devflow-persistent.js should be removed');
+  assert.strictEqual(exists('hooks/devteam-persistent.js'), false, 'hooks/devteam-persistent.js should be removed');
   assert.strictEqual(exists('hooks/my-dev-statusline.js'), false, 'hooks/my-dev-statusline.js should be removed');
 }
 
