@@ -79,7 +79,9 @@ function testYamlDoubleQuotedEscapesForShellCommands() {
 function createStandardWorkspace(prefix = 'devteam-workspace-new-') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fs.mkdirSync(path.join(root, 'repo-a-source'), { recursive: true });
-  writeFile(path.join(root, 'build.sh'), '#!/usr/bin/env bash\n');
+  fs.mkdirSync(path.join(root, 'artifacts'), { recursive: true });
+  writeFile(path.join(root, 'artifacts', 'image-context.txt'), 'context\n');
+  writeFile(path.join(root, 'scripts', 'build-image.sh'), '#!/usr/bin/env bash\n');
   writeFile(path.join(root, 'scripts', 'deploy.sh'), '#!/usr/bin/env bash\n');
   writeFile(path.join(root, 'Dockerfile.dev'), 'FROM scratch\n');
 
@@ -119,7 +121,7 @@ function createStandardWorkspace(prefix = 'devteam-workspace-new-') {
     '  feat-a:',
     '    workspace_set: feat-a',
     '    env: build-server',
-    '    command: bash build.sh --build-only',
+    '    command: bash scripts/build-image.sh --build-only',
     '    image: llm-d-cuda',
     '    tag: v1',
     'deploy_profiles:',
@@ -2689,7 +2691,8 @@ function testSyncPlanCanIncludeWorkspaceAssets() {
     '--profile', 'build-server',
     '--include-assets',
   ]);
-  assert.ok(plan.entries.some(entry => entry.id === 'asset__build.sh'));
+  assert.ok(plan.entries.some(entry => entry.id === 'asset__.devteam'));
+  assert.ok(plan.entries.some(entry => entry.id === 'asset__artifacts'));
   assert.ok(plan.entries.some(entry => entry.id === 'asset__scripts'));
   assert.ok(plan.entries.some(entry => entry.id === 'asset__Dockerfile.dev'));
 }
@@ -2793,7 +2796,7 @@ function testImageAndDeployPlansUseConfiguredProfiles() {
   assert.strictEqual(image.profile, 'feat-a');
   assert.strictEqual(image.env, 'build-server');
   assert.strictEqual(image.image, 'registry.example.com/library/llm-d-cuda:v1');
-  assert.strictEqual(image.command, 'bash build.sh --build-only');
+  assert.strictEqual(image.command, 'bash scripts/build-image.sh --build-only');
 
   const deploy = runCli(newRoot, ['deploy', 'plan', '--root', newRoot, '--set', 'feat-a', '--profile', 'staging']);
   assert.strictEqual(deploy.profile, 'staging');
@@ -3239,7 +3242,7 @@ function testSessionSnapshotWritesRunArtifact() {
   assert.strictEqual(payload.workspace_set, 'feat-a');
   assert.strictEqual(payload.profiles.env, 'build-server');
   assert.strictEqual(payload.sync_plan.totals.syncable, 1);
-  assert.strictEqual(payload.image_plan.command, 'bash build.sh --build-only');
+  assert.strictEqual(payload.image_plan.command, 'bash scripts/build-image.sh --build-only');
 }
 
 function testSessionStartWritesReadmeAndCanSkipBuildDeploy() {

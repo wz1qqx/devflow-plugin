@@ -2,14 +2,12 @@
 
 ## 2.1.0 - .devteam workspace runtime
 
-This release resets devteam around the current workspace model:
-local Mac worktrees, session-selected tracks, remote venv validation, image
-planning, pre-production deploy evidence, and reusable skills.
+`devteam` is centered on the current `.devteam/config.yaml` workspace runtime
+used by `llmd-vllm-v020-pega-v021`: local Mac worktrees, session-selected
+tracks, remote venv validation, image planning, pre-production deploy evidence,
+and reusable skills.
 
-The active runtime is `.devteam/config.yaml`. The previous feature pipeline
-runtime has been removed from the CLI and generated command surface.
-
-### Current Workflow
+### Daily Workflow
 
 1. Open a devteam-managed workspace.
 2. Read workspace context and choose a track for the current session.
@@ -40,10 +38,6 @@ Primary CLI commands:
 - `skill list|status|lint|install`
 - `knowledge list|search|lint|capture`
 
-The router no longer exposes feature-pipeline commands such as `init`,
-`config`, `state`, `pipeline`, `run`, `tasks`, `hooks`, `orchestration`,
-`checkpoint`, `build record`, or `stage-result`.
-
 ### Workspace And Track Model
 
 - Tracks are session-scoped. `defaults.workspace_set` is only a default hint.
@@ -58,11 +52,10 @@ The router no longer exposes feature-pipeline commands such as `init`,
 
 - `env doctor` inspects local profile fields and optional read-only remote checks.
 - `env refresh` plans or executes editable vLLM remote venv refreshes.
-- `sync plan/apply` supports normal rsync and relative patch sync strategies.
+- `sync plan/apply` supports full rsync and relative patch sync strategies.
 - `remote-loop` wraps the common source-to-remote-venv loop while leaving the
   exact test command flexible per change.
-- Test evidence is recorded from explicit summaries or pytest logs rather than
-  predefined test profiles.
+- Test evidence is recorded from explicit summaries or pytest logs.
 
 ### Image And Deploy Flow
 
@@ -106,23 +99,6 @@ copies are current, missing, drifted, or invalid.
 `doctor agent-onboarding --text` verifies that those files point agents to
 workspace context, track selection, and the current skill entry points.
 
-### Cleanup In This Release
-
-- Removed feature-pipeline runtime modules and tests.
-- Removed old prompt assets and generated command exposure for the previous
-  pipeline surface.
-- Renamed workspace runtime modules to current responsibility names:
-  - `workspace-config.cjs`
-  - `session-manager.cjs`
-  - `action-plan.cjs`
-  - `workspace-doctor.cjs`
-  - `skill-manager.cjs`
-  - `knowledge-manager.cjs`
-- Replaced migration-era naming in tests and docs.
-- Removed the one-off wiki migration script and the stale `learn` skill that
-  still referenced removed CLI entry points.
-- Preserved reusable optimization knowledge as the independent `vllm-opt` skill.
-
 ### Validation
 
 Release checks:
@@ -143,7 +119,6 @@ git diff --check
 ## Deferred Work
 
 - Knowledge/wiki import and capture flows still need a focused redesign.
-- Hook behavior should be reviewed against long-running multi-session work.
 - Build profiles should continue to be validated against real vLLM tag-patch and
   full-source image builds.
 - Deploy verification should accumulate concrete recipes per cluster or target.
