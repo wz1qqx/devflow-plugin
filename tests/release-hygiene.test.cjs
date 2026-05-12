@@ -76,7 +76,7 @@ function testSetupUsesDevteamPathsOnly() {
 function main() {
   testRemovedRuntimeTermsForbiddenInRuntimeDocsAndConfig();
   testSetupUsesDevteamPathsOnly();
-  console.log('week4-release-hygiene: ok');
+  console.log('release-hygiene: ok');
 }
 
 main();

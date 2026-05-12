@@ -33,7 +33,7 @@ function testRemovedWrappersStayRemoved() {
 function main() {
   testHookRegistryUsesDevteamEntrypoints();
   testRemovedWrappersStayRemoved();
-  console.log('week4-hooks: ok');
+  console.log('hooks: ok');
 }
 
 main();

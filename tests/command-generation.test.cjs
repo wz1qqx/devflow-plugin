@@ -45,7 +45,7 @@ function testGeneratedCommandDocsUseDevteamBinOnly() {
 function main() {
   testGeneratorUsesDevteamBinOnly();
   testGeneratedCommandDocsUseDevteamBinOnly();
-  console.log('week4-command-generation: ok');
+  console.log('command-generation: ok');
 }
 
 main();

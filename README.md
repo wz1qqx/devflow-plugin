@@ -137,7 +137,7 @@ docs live in `commands/devteam/*.md`.
 - `skills/devteam-console`: one-shot workspace console skill.
 - `skills/devteam-status`: compact workspace/run status skill.
 - `templates/onboarding`: generated `AGENTS.md`, `CLAUDE.md`, and `README.devteam.md`.
-- `tests/week15-workspace.test.cjs`: current broad regression suite for the
+- `tests/workspace-runtime.test.cjs`: current broad regression suite for the
   lightweight workspace model.
 
 ## Validation
@@ -145,9 +145,9 @@ docs live in `commands/devteam/*.md`.
 Useful checks while changing devteam:
 
 ```bash
-node tests/week15-workspace.test.cjs
-node tests/week4-command-generation.test.cjs
-node tests/week4-release-hygiene.test.cjs
+node tests/workspace-runtime.test.cjs
+node tests/command-generation.test.cjs
+node tests/release-hygiene.test.cjs
 node lib/devteam.cjs skill lint --root <workspace-root> --text
 node lib/devteam.cjs doctor agent-onboarding --root <workspace-root> --text
 git diff --check

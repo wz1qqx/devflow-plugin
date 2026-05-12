@@ -128,12 +128,12 @@ workspace context, track selection, and the current skill entry points.
 Release checks:
 
 ```bash
-node tests/week4-command-generation.test.cjs
-node tests/week4-release-hygiene.test.cjs
-node tests/week4-hooks.test.cjs
-node tests/week4-statusline.test.cjs
-node tests/week5-version.test.cjs
-node tests/week15-workspace.test.cjs
+node tests/command-generation.test.cjs
+node tests/release-hygiene.test.cjs
+node tests/hooks.test.cjs
+node tests/statusline.test.cjs
+node tests/version.test.cjs
+node tests/workspace-runtime.test.cjs
 node lib/devteam.cjs skill lint --root <workspace-root> --text
 node lib/devteam.cjs doctor agent-onboarding --root <workspace-root> --text
 node lib/devteam.cjs skill status --root <workspace-root> --text

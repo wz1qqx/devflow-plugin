@@ -53,7 +53,7 @@ function main() {
   testVersionFileMatchesPublishedMetadata();
   testSyncCacheReadsVersionFile();
   testSyncVersionCheckPasses();
-  console.log('week5-version: ok');
+  console.log('version: ok');
 }
 
 main();

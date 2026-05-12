@@ -22,7 +22,7 @@ function runStatusline(input, env = {}) {
 }
 
 function createWorkspace() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-week4-statusline-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devteam-statusline-'));
   writeFile(path.join(root, '.devteam', 'config.yaml'), [
     'version: 2',
     'name: inference-platform',
@@ -105,7 +105,7 @@ function main() {
   testReadsWorkspaceDefaults();
   testEnvTrackOverridesWorkspaceDefault();
   testShowsLatestOpenRunForTrack();
-  console.log('week4-statusline: ok');
+  console.log('statusline: ok');
 }
 
 main();

@@ -4105,7 +4105,7 @@ function main() {
   testRemoteDevProfileWithoutVllmSkipsImportCheck();
   testVllmRefreshCommandUsesEditablePrecompiledInstall();
   testEnvRefreshDefaultsToDryRunPlan();
-  console.log('week15-workspace: ok');
+  console.log('workspace-runtime: ok');
 }
 
 main();
