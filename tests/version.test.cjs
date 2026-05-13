@@ -53,6 +53,7 @@ function testWorkspaceAcceptanceScriptExists() {
 
   assert.match(script, /DEFAULT_WORKSPACE/);
   assert.match(script, /llmd-vllm-v020-pega-v021/);
+  assert.doesNotMatch(script, /\/Users\/ppio-dn-289/);
 }
 
 function main() {

@@ -7,7 +7,12 @@ const path = require('path');
 
 const { getRepoRoot } = require('../lib/version.cjs');
 
-const DEFAULT_WORKSPACE = '/Users/ppio-dn-289/Documents/llmd-vllm-v020-pega-v021';
+const DEFAULT_WORKSPACE_NAME = 'llmd-vllm-v020-pega-v021';
+const DEFAULT_WORKSPACE = path.join(
+  process.env.HOME || process.env.USERPROFILE || '',
+  'Documents',
+  DEFAULT_WORKSPACE_NAME
+);
 
 function parseArgs(argv) {
   const parsed = {

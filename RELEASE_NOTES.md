@@ -1,5 +1,18 @@
 # devteam Release Notes
 
+## 2.2.2 - Portable workspace acceptance default
+
+The workspace acceptance checker is now portable across Macs.
+
+- `bin/check-workspace-acceptance.cjs` defaults to
+  `~/Documents/llmd-vllm-v020-pega-v021` instead of a machine-specific
+  `/Users/<name>/...` path.
+- The version test now prevents the acceptance script from reintroducing the
+  original local username path.
+
+This keeps the new Mac install on a clean `devteam` checkout instead of relying
+on a local dirty patch after sync.
+
 ## 2.2.1 - Portable agent plugin entrypoints
 
 `devteam` now installs cleanly on another Mac without rewriting skill files by
